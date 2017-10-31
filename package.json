@@ -37,6 +37,7 @@
     "azure-storage": "2.4.0",
     "basic-auth": "1.0.4",
     "bluebird": "3.4.0",
+    "node-etcd": "3.0.2",
     "body-parser": "1.15.1",
     "dockerode": "2.2.10",
     "express": "4.13.4",
