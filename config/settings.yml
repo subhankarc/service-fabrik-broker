@@ -377,6 +377,23 @@ defaults: &defaults
     ###########################
     # CONTAINER SERVICE PLANS #
     ###########################
+    - &blueprint_plan0
+      id: '466c5078-de6e-427d-8fb2-c76af50c0f56'
+      name: 'v1.0-kube'
+      free: true
+      manager:
+        name: 'kube'
+        settings:
+      description: 'Hello World Kube 1.0 service running inside a Docker container (for non-productive usage)'
+      metadata:
+        costs:
+        - amount:
+            usd: 0.0
+          unit: 'MONTHLY'
+        bullets:
+        - 'Kubernetes Deployment'
+        - '128 MB Memory'
+        - '100 MB Disk'
     - &blueprint_plan1
       id: '466c5078-df6e-427d-8fb2-c76af50c0f56'
       name: 'v1.0-dev'
@@ -560,6 +577,7 @@ development: &development
   services:
   - <<: *blueprint_service
     plans:
+    - *blueprint_plan0
     - *blueprint_plan1
     - *blueprint_plan2
     - <<: *blueprint_plan3
