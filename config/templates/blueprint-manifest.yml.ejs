@@ -1,4 +1,5 @@
-<%= spec.header.select({disk_pools: [p('disk_pool')], resource_pools: [{name: p('resource_pool')}]}) %>
+<% const predeps = spec.header.predeps %>
+<%= spec.header.select({disk_pools: [p('disk_pool')], resource_pools: [{name: p('resource_pool'), cloud_properties: { openstack: { scheduler_hints: { group: predeps }}}}]}) %>
 
 update:
   canaries: 0
