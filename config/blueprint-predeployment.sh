@@ -80,5 +80,5 @@ LIST_SERVER_GROUP_RESPONSE=$(curl -ks -H "X-Auth-Token:$TOKEN" -H "Content-type:
 SERVER_GROUPS=$(echo $LIST_SERVER_GROUP_RESPONSE | $jq '.server_groups[]')
 #echo $SERVER_GROUPS
 
-SG_ID=$(echo $LIST_SERVER_GROUP_RESPONSE | $jq '.server_groups[] | select(.id=="d90738d4-3185-411f-85ce-aeb537905fe8") | .id')
+SG_ID=$(echo $LIST_SERVER_GROUP_RESPONSE | $jq -r --arg SERVER_GROUP_NAME "$SERVER_GROUP_NAME" '.server_groups[] | select(.name==$SERVER_GROUP_NAME) | .id')
 echo $SG_ID
