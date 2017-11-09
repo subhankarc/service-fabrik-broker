@@ -71,7 +71,7 @@ COMPUTE_PUBLIC_URL=$(echo $CATALOGS | $jq -r '. | select(.type=="compute") | .en
 #echo $(date) "[DEBUG][IPFAILOVER]" "COMPUTE PUBLIC URL " $COMPUTE_PUBLIC_URL
 
 SERVER_GROUP_ENDPOINT="$COMPUTE_PUBLIC_URL/os-server-groups"
-#CREATE_SERVER_GROUP_RESPONSE=$(curl -ks -H "X-Auth-Token:$TOKEN" -H "Content-type: application/json" -X POST $SERVER_GROUP_ENDPOINT -d "{ \"server_group\": { \"name\": \"$SERVER_GROUP_NAME\", \"policies\": [\"anti-affinity\"] } }")
+CREATE_SERVER_GROUP_RESPONSE=$(curl -ks -H "X-Auth-Token:$TOKEN" -H "Content-type: application/json" -X POST $SERVER_GROUP_ENDPOINT -d "{ \"server_group\": { \"name\": \"$SERVER_GROUP_NAME\", \"policies\": [\"anti-affinity\"] } }")
 
 LIST_SERVER_GROUP_RESPONSE=$(curl -ks -H "X-Auth-Token:$TOKEN" -H "Content-type: application/json" $SERVER_GROUP_ENDPOINT )
 
