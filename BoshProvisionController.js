@@ -1,4 +1,4 @@
 const lib = require('./lib');
-const directorProvisioner = lib.controllers.directorProvisioner;
+const directorProvisioner = lib.managers.directorProvisioner;
 
 directorProvisioner.registerWatcher();
