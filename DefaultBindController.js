@@ -1,4 +1,4 @@
 const lib = require('./lib');
-const defaultBindExecutor = lib.controllers.defaultBindExecutor;
+const defaultBindExecutor = lib.managers.defaultBindExecutor;
 
 defaultBindExecutor.registerWatcher();

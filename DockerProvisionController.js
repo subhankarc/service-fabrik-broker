@@ -1,4 +1,4 @@
 const lib = require('./lib');
-const dockerProvisioner = lib.controllers.dockerProvisioner;
+const dockerProvisioner = lib.managers.dockerProvisioner;
 
 dockerProvisioner.registerWatcher();
