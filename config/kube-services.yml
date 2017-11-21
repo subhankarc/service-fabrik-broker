@@ -1,0 +1,67 @@
+# This file should not be used in deployed environments. Instead, set
+# the SETTINGS_PATH environment variable to point to a configuration
+# file that contains these settings.
+<%
+const path = require('path');
+const os = require('os');
+
+const log_path = path.join(__dirname, '..', 'logs', `${process.env.NODE_ENV}.log`)
+
+const broker_name = 'service-fabrik-broker';
+const ip = '10.0.2.2';
+const internal = {
+  protocol: 'https',
+  ip: ip,
+  port: 9293
+};
+const external = {
+  protocol: 'https',
+  host: `${broker_name}.bosh-lite.com`,
+  port: 9292
+};
+const redirect_uri = `${external.protocol}://${external.host}/manage/auth/cf/callback`;
+%>---
+########################################
+# SERVICES CATALOG - BLUEPRINT SERVICE #
+########################################
+services:
+- &blueprint_service
+  id: '24731fb8-7b84-4f57-914f-c3d55d793dd4'
+  name: 'hello-world'
+  description: &description 'Hello world service on Kubernetes'
+  bindable: true
+  tags:
+  - 'blueprint'
+  - 'no-not-use'
+  metadata:
+    displayName: 'Hello World'
+    longDescription: *description
+    providerDisplayName: 'SAP SE'
+    documentationUrl: 'https://sap.com/'
+    supportUrl: 'https://sap.com/'
+  dashboard_client:
+    id: 'service-fabrik-hello-world-client'
+    secret: 'service-fabrik-hello-world-secret'
+    redirect_uri: <%= redirect_uri %>
+  plan_updateable: true
+  plans:
+  ###########################
+  # KUBERNETES SERVICE PLANS #
+  ###########################
+  - &blueprint_plan0
+    id: '466c5078-de6e-427d-8fb2-c76af50c0f56'
+    name: 'v1.0-kube'
+    free: true
+    manager:
+      name: 'kube'
+      settings:
+    description: 'Hello World Kube 1.0 service running inside a Docker container (for non-productive usage)'
+    metadata:
+      costs:
+      - amount:
+          usd: 0.0
+        unit: 'MONTHLY'
+      bullets:
+      - 'Kubernetes Deployment'
+      - '128 MB Memory'
+      - '100 MB Disk'
