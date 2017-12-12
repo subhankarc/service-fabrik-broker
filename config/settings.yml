@@ -102,6 +102,14 @@ defaults: &defaults
     ssl:
       key: <%= certificate('broker.key') %>
       cert: <%= certificate('broker.crt') %>
+  ####################
+  # ETCD SETTINGS #
+  ####################
+  etcd:
+    url:
+      - '10.244.9.93:4001'
+      - '10.244.9.94:4001'
+      - '10.244.9.95:4001'
 
   ####################
   # MONGODB SETTINGS #
@@ -271,8 +279,7 @@ defaults: &defaults
     password: admin
     skip_ssl_validation: true
     cpi: warden_cpi
-  - &director
-    primary: true
+  - primary: true
     support_create: false
     name: bosh
     cpi: warden_cpi
@@ -342,7 +349,8 @@ defaults: &defaults
         reuse_compilation_vms: true
         workers: 4
         cloud_properties: { name: random }
-  - cpi: warden_cpi
+  - &director
+    cpi: warden_cpi
     url: https://192.168.50.4:25555
     username: admin
     password: admin
@@ -399,6 +407,23 @@ defaults: &defaults
     ###########################
     # CONTAINER SERVICE PLANS #
     ###########################
+    - &blueprint_plan0
+      id: '466c5078-de6e-427d-8fb2-c76af50c0f56'
+      name: 'v1.0-kube'
+      free: true
+      manager:
+        name: 'kube'
+        settings:
+      description: 'Hello World Kube 1.0 service running inside a Docker container (for non-productive usage)'
+      metadata:
+        costs:
+        - amount:
+            usd: 0.0
+          unit: 'MONTHLY'
+        bullets:
+        - 'Kubernetes Deployment'
+        - '128 MB Memory'
+        - '100 MB Disk'
     - &blueprint_plan1
       id: '466c5078-df6e-427d-8fb2-c76af50c0f56'
       name: 'v1.0-dev'
@@ -477,7 +502,7 @@ defaults: &defaults
           agent: *agent_blueprint
           template: <%= base64_template('blueprint') %>
           releases: &dedicated_releases
-          - { name: blueprint, version: 1.0.0, git: "https://github.com/sap/service-fabrik-blueprint-boshrelease.git" }
+          - { name: blueprint, version: latest, git: "https://github.com/sap/service-fabrik-blueprint-boshrelease.git" }
           context: &context_plan3
             agent: *agent_blueprint
             resource_pool: micro
@@ -582,6 +607,7 @@ development: &development
   services:
   - <<: *blueprint_service
     plans:
+    - *blueprint_plan0
     - *blueprint_plan1
     - *blueprint_plan2
     - <<: *blueprint_plan3

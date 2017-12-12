@@ -1,0 +1,154 @@
+# This file should not be used in deployed environments. Instead, set
+# the SETTINGS_PATH environment variable to point to a configuration
+# file that contains these settings.
+<%
+const path = require('path');
+const os = require('os');
+
+const log_path = path.join(__dirname, '..', 'logs', `${process.env.NODE_ENV}.log`)
+
+const broker_name = 'service-fabrik-broker';
+const ip = '10.0.2.2';
+const internal = {
+  protocol: 'https',
+  ip: ip,
+  port: 9293
+};
+const external = {
+  protocol: 'https',
+  host: `${broker_name}.bosh-lite.com`,
+  port: 9292
+};
+const redirect_uri = `${external.protocol}://${external.host}/manage/auth/cf/callback`;
+%>---
+########################################
+# SERVICES CATALOG - BLUEPRINT SERVICE #
+########################################
+agents: &agents
+  blueprint: &agent_blueprint
+    version: '1'
+    hostname: <%= process.env.BLUEPRINT_AGENT_HOSTNAME || '~' %>
+    auth:
+      username: agent
+      password: secret
+    supported_features:
+    - state
+    - lifecycle
+    - credentials
+    - backup
+    - restore
+    provider: &provider_blueprint
+      name: boshlite
+      container: blueprint_backup
+
+services:
+- &blueprint_service
+  id: '24731fb8-7b84-4f57-914f-c3d55d793dd4'
+  name: 'blueprint'
+  description: &description 'Blueprint service for internal development, testing, and documentation purposes of the Service Fabrik'
+  bindable: true
+  tags:
+  - 'blueprint'
+  - 'no-not-use'
+  metadata:
+    displayName: 'Blueprint'
+    longDescription: *description
+    providerDisplayName: 'SAP SE'
+    documentationUrl: 'https://sap.com/'
+    supportUrl: 'https://sap.com/'
+  dashboard_client:
+    id: 'service-fabrik-blueprint-client'
+    secret: 'service-fabrik-blueprint-secret'
+    redirect_uri: <%= redirect_uri %>
+  plan_updateable: true
+  plans:
+  ###########################
+  # DEDICATED SERVICE PLANS #
+  ###########################
+  - &blueprint_plan3
+    id: 'bc158c9a-7934-401e-94ab-057082a5073f'
+    name: 'v1.0-xsmall'
+    free: false
+    manager: &manager_plan3
+      name: 'director'
+      settings: &settings_plan3
+        prefix: 'blueprint'
+        agent: *agent_blueprint
+        template: <%= base64_template('blueprint') %>
+        releases: &dedicated_releases
+        - { name: blueprint, version: latest, git: "https://github.com/sap/service-fabrik-blueprint-boshrelease.git" }
+        context: &context_plan3
+          agent: *agent_blueprint
+          resource_pool: micro
+          disk_pool: hdd_1gb
+    description: 'Blueprint 1.0 service x-small (managed service in beta)'
+    metadata:
+      costs:
+      - amount:
+          usd: 0.0
+        unit: 'MONTHLY'
+      bullets:
+      - 'Dedicated Deployment'
+      - '1 VM'
+      - '1 vCPUs'
+      - '1 GB Memory'
+      - '1 GB Disk'
+  - &blueprint_plan4
+    id: 'bc158c9a-7934-401e-94ab-057082a5073e'
+    name: 'v1.0-small'
+    free: false
+    manager: &manager_plan4
+      name: 'director'
+      settings: &settings_plan4
+        prefix: 'blueprint'
+        agent: *agent_blueprint
+        update_predecessors:
+        - 'bc158c9a-7934-401e-94ab-057082a5073f'
+        template: <%= base64_template('blueprint') %>
+        releases: *dedicated_releases
+        context: &context_plan4
+          agent: *agent_blueprint
+          resource_pool: micro
+          disk_pool: hdd_2gb
+    description: 'Blueprint 1.0 service small (managed service in beta)'
+    metadata:
+      costs:
+      - amount:
+          usd: 0.0
+        unit: 'MONTHLY'
+      bullets:
+      - 'Dedicated Deployment'
+      - '1 VM'
+      - '1 vCPUs'
+      - '1 GB Memory'
+      - '2 GB Disk'
+  - &blueprint_plan5
+    id: 'd616b00a-5949-4b1c-bc73-0d3c59f3954a'
+    name: 'v1.0-large'
+    free: false
+    manager: &manager_plan5
+      name: 'director'
+      settings: &settings_plan5
+        prefix: 'blueprint'
+        agent: *agent_blueprint
+        update_predecessors:
+        - 'bc158c9a-7934-401e-94ab-057082a5073f'
+        - 'bc158c9a-7934-401e-94ab-057082a5073e'
+        template: <%= base64_template('blueprint') %>
+        releases: *dedicated_releases
+        context: &context_plan5
+          agent: *agent_blueprint
+          resource_pool: micro
+          disk_pool: hdd_2gb
+    description: 'Blueprint 1.0 service large (managed service in beta)'
+    metadata:
+      costs:
+      - amount:
+          usd: 0.0
+        unit: 'MONTHLY'
+      bullets:
+      - 'Dedicated Deployment'
+      - '1 VM'
+      - '1 vCPUs'
+      - '2 GB Memory'
+      - '2 GB Disk'
