@@ -539,7 +539,7 @@ describe('service-fabrik-api', function () {
               mocks.verify();
             });
         });
-        
+
         it('should download the backup logs and update the metadata', function () {
           const state = 'succeeded';
           const backupState = {
