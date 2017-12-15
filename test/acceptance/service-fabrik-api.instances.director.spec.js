@@ -539,7 +539,7 @@ describe('service-fabrik-api', function () {
               mocks.verify();
             });
         });
-        ///
+        
         it('should download the backup logs and update the metadata', function () {
           const state = 'succeeded';
           const backupState = {
@@ -892,7 +892,7 @@ describe('service-fabrik-api', function () {
               mocks.verify();
             });
         });
-        ///
+
         it('should receive the update request from cloud controller and start the restore', function () {
           mocks.director.getDeploymentManifest();
           mocks.director.getDeploymentVms(deployment_name);
@@ -971,7 +971,7 @@ describe('service-fabrik-api', function () {
               mocks.verify();
             });
         });
-        /////
+
         it('should download the restore logs and update the metadata', function () {
           const state = 'succeeded';
           const restoreState = {
