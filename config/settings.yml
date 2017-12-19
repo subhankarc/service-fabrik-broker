@@ -650,6 +650,8 @@ boshlite2:
   - <<: *director
     url: https://192.168.50.6:25555
     password: director_password
+    primary: true
+    support_create: true
     infrastructure:
       <<: *director_infrastructure
       networks:
