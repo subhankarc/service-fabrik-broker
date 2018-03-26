@@ -158,6 +158,14 @@ defaults: &defaults
       key: <%= certificate('broker.key') %>
       cert: <%= certificate('broker.crt') %>
   ####################
+  # ETCD SETTINGS #
+  ####################
+  etcd:
+    url:
+      - '10.244.9.93:4001'
+      - '10.244.9.94:4001'
+      - '10.244.9.95:4001'
+  ####################
   # MONGODB SETTINGS #
   ####################
   mongodb:
