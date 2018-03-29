@@ -8,15 +8,15 @@ const os = require('os');
 const log_path = path.join(__dirname, '..', 'logs', `${process.env.NODE_ENV}.log`)
 
 const broker_name = 'service-fabrik-broker';
-const ip = '10.0.2.2';
+const ip = '10.11.252.16';
 const internal = {
-  protocol: 'https',
+  protocol: 'http',
   ip: ip,
   port: 9293
 };
 const external = {
-  protocol: 'https',
-  host: `${broker_name}.bosh-lite.com`,
+  protocol: 'http',
+  host: ip,
   port: 9292
 };
 const report = {
@@ -55,7 +55,7 @@ const cloudProviders = {
     container: 'samplecontainer'
   }
 };
-const cloudProvider = cloudProviders.openstack;
+const cloudProvider = cloudProviders.amazon;
 
 const virtualHostCloudProviders = {
   openstack: {
@@ -139,9 +139,6 @@ defaults: &defaults
     ip: <%= internal.ip %>
     protocol: <%= internal.protocol%>
     host: <%= `${internal.ip}:${internal.port}` %>
-    ssl:
-      key: <%= certificate('broker.key') %>
-      cert: <%= certificate('broker.crt') %>
 
 
   ##############################
@@ -157,6 +154,16 @@ defaults: &defaults
     ssl:
       key: <%= certificate('broker.key') %>
       cert: <%= certificate('broker.crt') %>
+
+  ####################
+  # ETCD SETTINGS #
+  ####################
+  etcd:
+    url:
+      - '10.11.122.107:4001'
+      - '10.11.122.106:4001'
+      - '10.11.122.108:4001'
+
   ####################
   # MONGODB SETTINGS #
   ####################
@@ -282,7 +289,7 @@ defaults: &defaults
   ###################
   backup:
     retention_period_in_days: 14
-    max_num_on_demand_backup: 2
+    max_num_on_demand_backup: 200
     status_check_every: 120000 # (ms) Check the status of backup once every 2 mins
     retry_delay_on_error: 60000 # (ms) In case of unlock failure 3 retry attempts will be done with this configured delay in exponential manner
     lock_check_delay_on_restart: 5000 #(ms) On restart of service fabrik queries all deployments to see if there is a lock on it. This delay ensures each call is spaced with this delay.
@@ -291,16 +298,10 @@ defaults: &defaults
     abort_time_out: 300000 #(ms) Timeout time for abort of backup to complete
     consecutive_backup_failure_sla_count: 3 # Max allowed no backup days in a row
     provider:
-      name: openstack
-      authUrl: <%= cloudProvider.authUrl %>
-      keystoneAuthVersion: <%= cloudProvider.keystoneAuthVersion %>
-      domainName: <%= cloudProvider.domainName %>
-      projectDomainName: <%= cloudProvider.domainName %>
-      tenantId: <%= cloudProvider.tenantId %>
-      region: <%= cloudProvider.region %>
-      username: <%= cloudProvider.username %>
-      password: <%= cloudProvider.password %>
-      strictSSL: false
+      name: aws
+      region: '*********'
+      keyId: '********************'
+      key: '****************************************'
       container: <%= cloudProvider.containerPrefix %>-broker
 
   #################################
@@ -764,8 +765,12 @@ development: &development
   <<: *defaults
   log_level: debug
   password: 'secret'
+  cf:
+    <<: *cf
+    url: https://api.cf.dev1.sf.sapcloud.io
   directors:
   - <<: *director
+    url: https://10.0.3.21:25555
     cpi: aws_cpi
     primary: true
     support_create: true
@@ -773,6 +778,42 @@ development: &development
     uuid: b7e651e2-3afe-471f-9bca-93048fa591f4
     infrastructure: &test_infrastructure
       <<: *director_infrastructure
+      stemcell:
+        alias: ubuntu-trusty
+        name: bosh-aws-xen-hvm-ubuntu-trusty-go_agent
+        version: latest
+      networks:
+      - name: default
+        subnets:
+        - az: z1
+          cloud_properties:
+            security_groups:
+            - sg-c90f35be
+            subnet: subnet-63f2a34c
+          dns:
+          - 10.0.0.2
+          gateway: 10.11.0.1
+          range: 10.11.0.0/18
+          reserved:
+          - 10.11.0.1
+          - 10.11.63.255
+          static:
+          - 10.11.0.2 - 10.11.63.254
+        - az: z2
+          cloud_properties:
+            security_groups:
+            - sg-c90f35be
+            subnet: subnet-b61800fd
+          dns:
+          - 10.0.0.2
+          gateway: 10.11.64.1
+          range: 10.11.64.0/18
+          reserved:
+          - 10.11.64.1
+          - 10.11.127.255
+          static:
+          - 10.11.64.2 - 10.11.127.254
+        type: manual
   agents:
     <<: *agents
     blueprint: &agent_blueprint1
