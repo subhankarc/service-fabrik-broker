@@ -17,6 +17,9 @@ const ServiceBindingAlreadyExists = errors.ServiceBindingAlreadyExists;
 const ServiceBindingNotFound = errors.ServiceBindingNotFound;
 const ContinueWithNext = errors.ContinueWithNext;
 const CONST = require('../common/constants');
+const config = require('../common/config');
+const BasePlatformManager = require('../broker/lib/fabrik/BasePlatformManager');
+const DirectorService = require('../managers/bosh-manager');
 
 class ServiceBrokerApiController extends FabrikBaseController {
   constructor() {
@@ -43,6 +46,34 @@ class ServiceBrokerApiController extends FabrikBaseController {
     res.status(CONST.HTTP_STATUS_CODE.OK).json(this.fabrik.getPlatformManager(req.params.platform).getCatalog(catalog));
   }
 
+  createDirectorService(req) {
+    const instance_id = req.params.instance_id;
+    const service_id = req.body.service_id || req.query.service_id;
+    const plan_id = req.body.plan_id || req.query.plan_id;
+    const plan = catalog.getPlan(plan_id);
+    this.validateUuid(instance_id, 'Service Instance ID');
+    this.validateUuid(service_id, 'Service ID');
+    this.validateUuid(plan_id, 'Plan ID');
+    const encodedOp = _.get(req, 'query.operation', undefined);
+    const operation = encodedOp === undefined ? null : utils.decodeBase64(encodedOp);
+    const context = _.get(req, 'body.context') || _.get(operation, 'context');
+    //TODO : assign the platform context as well here.
+    const directorService = new DirectorService(instance_id, plan);
+    return Promise
+      .try(() => context ? context : directorService.platformContext)
+      .then(context => directorService.assignPlatformManager(ServiceBrokerApiController.getPlatformManager(context.platform)))
+      .return(directorService);
+  }
+
+  static getPlatformManager(platform) {
+    const PlatformManager = (platform && CONST.PLATFORM_MANAGER[platform]) ? require(`../fabrik/${CONST.PLATFORM_MANAGER[platform]}`) : ((platform && CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]) ? require(`../fabrik/${CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]}`) : undefined);
+    if (PlatformManager === undefined) {
+      return new BasePlatformManager(platform);
+    } else {
+      return new PlatformManager(platform);
+    }
+  }
+
   putInstance(req, res) {
     const params = _.omit(req.body, 'plan_id', 'service_id');
 
@@ -66,7 +97,8 @@ class ServiceBrokerApiController extends FabrikBaseController {
     req.operation_type = CONST.OPERATION_TYPE.CREATE;
 
     return Promise
-      .try(() => req.instance.create(params))
+      .try(() => this.createDirectorService(req))
+      .then(directorService => directorService.create(params))
       .then(done)
       .catch(ServiceInstanceAlreadyExists, conflict);
   }
@@ -96,8 +128,9 @@ class ServiceBrokerApiController extends FabrikBaseController {
         if (!req.manager.isUpdatePossible(params.previous_values.plan_id)) {
           throw new BadRequest(`Update to plan '${req.manager.plan.name}' is not possible`);
         }
-        return req.instance.update(params);
+        return this.createDirectorService(req);
       })
+      .then(directorService => directorService.update(params))
       .then(done);
   }
 
@@ -121,7 +154,8 @@ class ServiceBrokerApiController extends FabrikBaseController {
     req.operation_type = CONST.OPERATION_TYPE.DELETE;
 
     return Promise
-      .try(() => req.instance.delete(params))
+      .try(() => this.createDirectorService(req))
+      .then(directorService => directorService.delete(params))
       .then(done)
       .catch(ServiceInstanceNotFound, gone);
   }
@@ -162,7 +196,8 @@ class ServiceBrokerApiController extends FabrikBaseController {
       failed(err);
     }
 
-    return req.instance.lastOperation(operation)
+    return this.createDirectorService(req)
+      .then(directorService => directorService.lastOperation(operation))
       .then(done)
       .catch(AssertionError, failed)
       .catch(ServiceInstanceNotFound, notFound);
@@ -186,7 +221,8 @@ class ServiceBrokerApiController extends FabrikBaseController {
     }
 
     return Promise
-      .try(() => req.instance.bind(params))
+      .try(() => this.createDirectorService(req))
+      .then(directorService => directorService.bind(params))
       .then(done)
       .catch(ServiceBindingAlreadyExists, conflict);
   }
@@ -207,7 +243,8 @@ class ServiceBrokerApiController extends FabrikBaseController {
     }
 
     return Promise
-      .try(() => req.instance.unbind(params))
+      .try(() => this.createDirectorService(req))
+      .then(directorService => directorService.unbind(params))
       .then(done)
       .catch(ServiceBindingNotFound, gone);
   }
