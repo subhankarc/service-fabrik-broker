@@ -141,8 +141,8 @@ class DirectorService extends BaseDirectorService {
               this.platformManager.preInstanceDeleteOperations({
                 guid: this.guid
               })
-              //,
-              //this.deleteRestoreFile()
+              ,
+              this.deleteRestoreFile()
             ]);
         }
       });
