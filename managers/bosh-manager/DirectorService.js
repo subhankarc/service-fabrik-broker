@@ -4,19 +4,19 @@ const assert = require('assert');
 const Promise = require('bluebird');
 const _ = require('lodash');
 const yaml = require('js-yaml');
-const config = require('../../broker/lib/config');
-const logger = require('../../broker/lib/logger');
-const errors = require('../../broker/lib/errors');
+const config = require('../../common/config');
+const logger = require('../../common/logger');
+const errors = require('../../common/errors');
 const jwt = require('../../broker/lib/jwt');
-const utils = require('../../broker/lib/utils');
-const catalog = require('../../broker/lib/models').catalog;
+const utils = require('../../common/utils');
+const catalog = require('../../common/models').catalog;
 const NotFound = errors.NotFound;
 const ServiceInstanceNotFound = errors.ServiceInstanceNotFound;
-const ScheduleManager = require('../../broker/lib/jobs');
-const CONST = require('../../broker/lib/constants');
+const ScheduleManager = require('../../jobs');
+const CONST = require('../../common/constants');
 const ordinals = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
-const bosh = require('../../broker/lib/bosh');
-const Agent = require('../../broker/lib/fabrik/Agent');
+const bosh = require('../../data-access-layer/bosh');
+const Agent = require('../../data-access-layer/service-agent');
 const NetworkSegmentIndex = bosh.NetworkSegmentIndex;
 const ServiceBindingAlreadyExists = errors.ServiceBindingAlreadyExists;
 const boshOperationQueue = bosh.BoshOperationQueue;
@@ -26,7 +26,7 @@ const FeatureNotSupportedByAnyAgent = errors.FeatureNotSupportedByAnyAgent;
 const ServiceBindingNotFound = errors.ServiceBindingNotFound;
 const DeploymentDelayed = errors.DeploymentDelayed;
 const BaseDirectorService = require('../BaseDirectorService');
-const cf = require('../../broker/lib/cf');
+const cf = require('../../data-access-layer/cf');
 const cloudController = cf.cloudController;
 const serviceFabrikClient = cf.serviceFabrikClient;
 const Header = bosh.manifest.Header;
@@ -628,7 +628,7 @@ class DirectorService extends BaseDirectorService {
     //Lazy create of deploymentHookClient
     //Only Processes that require service lifecycle operations will need deployment_hooks properties.
     //Can be loaded on top when we modularize scheduler and report process codebase
-    const deploymentHookClient = require('../../broker/lib/utils/DeploymentHookClient');
+    const deploymentHookClient = require('../../common/utils/DeploymentHookClient');
     return Promise.try(() => {
       const serviceLevelActions = this.service.actions;
       const planLevelActions = phase === CONST.SERVICE_LIFE_CYCLE.PRE_UPDATE ? catalog.getPlan(context.params.previous_values.plan_id).actions :

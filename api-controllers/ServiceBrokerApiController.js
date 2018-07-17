@@ -66,7 +66,7 @@ class ServiceBrokerApiController extends FabrikBaseController {
   }
 
   static getPlatformManager(platform) {
-    const PlatformManager = (platform && CONST.PLATFORM_MANAGER[platform]) ? require(`../fabrik/${CONST.PLATFORM_MANAGER[platform]}`) : ((platform && CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]) ? require(`../fabrik/${CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]}`) : undefined);
+    const PlatformManager = (platform && CONST.PLATFORM_MANAGER[platform]) ? require(`../broker/lib/fabrik/${CONST.PLATFORM_MANAGER[platform]}`) : ((platform && CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]) ? require(`../broker/lib/fabrik/${CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]}`) : undefined);
     if (PlatformManager === undefined) {
       return new BasePlatformManager(platform);
     } else {
