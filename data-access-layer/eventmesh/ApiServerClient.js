@@ -17,8 +17,8 @@ const InternalServerError = errors.InternalServerError;
 
 const apiserver = new kc.Client({
   config: {
-    // url: `https://${config.apiserver.ip}:${config.apiserver.port}`,
-    url: `https://${config.internal.ip}:${CONST.APISERVER.PORT}`,
+    url: `https://${config.apiserver.ip}:${config.apiserver.port}`,
+    // url: `https://${config.internal.ip}:${CONST.APISERVER.PORT}`,
     insecureSkipTlsVerify: true
   },
   version: CONST.APISERVER.VERSION
@@ -37,21 +37,21 @@ function convertToHttpErrorAndThrow(err) {
     code = err.status;
   }
   switch (code) {
-    case CONST.HTTP_STATUS_CODE.BAD_REQUEST:
-      newErr = new BadRequest(message);
-      break;
-    case CONST.HTTP_STATUS_CODE.NOT_FOUND:
-      newErr = new NotFound(message);
-      break;
-    case CONST.HTTP_STATUS_CODE.CONFLICT:
-      newErr = new Conflict(message);
-      break;
-    case CONST.HTTP_STATUS_CODE.FORBIDDEN:
-      newErr = new errors.Forbidden(message);
-      break;
-    default:
-      newErr = new InternalServerError(message);
-      break;
+  case CONST.HTTP_STATUS_CODE.BAD_REQUEST:
+    newErr = new BadRequest(message);
+    break;
+  case CONST.HTTP_STATUS_CODE.NOT_FOUND:
+    newErr = new NotFound(message);
+    break;
+  case CONST.HTTP_STATUS_CODE.CONFLICT:
+    newErr = new Conflict(message);
+    break;
+  case CONST.HTTP_STATUS_CODE.FORBIDDEN:
+    newErr = new errors.Forbidden(message);
+    break;
+  default:
+    newErr = new InternalServerError(message);
+    break;
   }
   throw newErr;
 }
@@ -77,7 +77,9 @@ class ApiServerClient {
   /**
    * Poll for Status until opts.start_state changes
    * @param {object} opts - Object containing options
-   * @param {string} opts.operationId - Id of the operation ex. backupGuid
+   * @param {string} opts.resourceGroup - Id of the operation ex. backupGuid
+   * @param {string} opts.resourceType - Id of the operation ex. backupGuid
+   * @param {string} opts.resourceId - Id of the operation resource ex. backupGuid
    * @param {string} opts.start_state - start state of the operation ex. in_queue
    * @param {object} opts.started_at - Date object specifying operation start time
    */
@@ -86,26 +88,26 @@ class ApiServerClient {
     let finalState;
     return Promise.delay(CONST.EVENTMESH_POLLER_DELAY)
       .then(() => this.getOperationState({
-        operationName: CONST.OPERATION_TYPE.BACKUP,
-        operationType: CONST.APISERVER.RESOURCE_TYPES.DEFAULT_BACKUP,
-        operationId: opts.operationId
+        operationName: opts.resourceGroup,
+        operationType: opts.resourceType,
+        operationId: opts.resourceId
       }))
       .then(state => {
         const duration = (new Date() - opts.started_at) / 1000;
         logger.info(`Polling for ${opts.start_state} duration: ${duration} `);
         if (duration > CONST.APISERVER.OPERATION_TIMEOUT_IN_SECS) {
-          logger.error(`Backup with guid ${opts.operationId} not picked up from the queue`);
-          throw new Timeout(`Backup with guid ${opts.operationId} not picked up from the queue`);
+          logger.error(`Backup with guid ${opts.resourceId} not picked up from the queue`);
+          throw new Timeout(`Backup with guid ${opts.resourceId} not picked up from the queue`);
         }
         if (state === opts.start_state) {
           return this.getResourceOperationStatus(opts);
         } else if (state === CONST.APISERVER.RESOURCE_STATE.ERROR) {
           finalState = state;
           return this.getOperationResponse({
-            operationName: CONST.OPERATION_TYPE.BACKUP,
-            operationType: CONST.APISERVER.RESOURCE_TYPES.DEFAULT_BACKUP,
-            operationId: opts.operationId,
-          })
+              operationName: CONST.OPERATION_TYPE.BACKUP,
+              operationType: CONST.APISERVER.RESOURCE_TYPES.DEFAULT_BACKUP,
+              operationId: opts.resourceId,
+            })
             .then(errorResponse => {
               logger.info('Operation manager reported error', errorResponse);
               return convertToHttpErrorAndThrow(errorResponse);
@@ -113,9 +115,9 @@ class ApiServerClient {
         } else {
           finalState = state;
           return this.getOperationResponse({
-            operationName: CONST.OPERATION_TYPE.BACKUP,
-            operationType: CONST.APISERVER.RESOURCE_TYPES.DEFAULT_BACKUP,
-            operationId: opts.operationId,
+            operationName: opts.resourceGroup,
+            operationType: opts.resourceType,
+            operationId: opts.resourceId,
           });
         }
       })
@@ -188,6 +190,7 @@ class ApiServerClient {
   }
 
   deleteResource(resourceGroup, resourceType, resourceId) {
+    logger.info(`Deleting resource: resourceGroup: ${resourceGroup}, resourceType: ${resourceType}, resourceId: ${resourceId}`);
     return Promise.try(() => this.init())
       .then(() => apiserver.apis[`${resourceGroup}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
         .namespaces(CONST.APISERVER.NAMESPACE)[resourceType](resourceId).delete());
@@ -610,19 +613,19 @@ class ApiServerClient {
           body: statusJson
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
   /**
- * @description Create Resource in Apiserver with the opts
- * @param {string} opts.resourceId - Unique id of resource
- * @param {string} opts.resourceType - Type of resource
- * @param {Object} opts.value - Value to set for spec.options field of resource
- * @param {Object} opts.state - State of resource
- * @param {Object} opts.lastOperation - lastOperation of resource
- * @param {Object} opts.response - lastOperation of resource
- */
+   * @description Create Resource in Apiserver with the opts
+   * @param {string} opts.resourceId - Unique id of resource
+   * @param {string} opts.resourceType - Type of resource
+   * @param {Object} opts.value - Value to set for spec.options field of resource
+   * @param {Object} opts.state - State of resource
+   * @param {Object} opts.lastOperation - lastOperation of resource
+   * @param {Object} opts.response - lastOperation of resource
+   */
   updateDeploymentResource(opts) {
     const resourceBody = {
       metadata: {
@@ -646,13 +649,14 @@ class ApiServerClient {
           body: statusJson
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
 
   /**
    * @description Function to Update the state field
+   * @param {string} opts.resourceGroup - Group of operation
    * @param {string} opts.resourceType - Type of operation
    * @param {string} opts.resourceId - Unique id of operation
    * @param {Object} opts.response - Object to be set as response
@@ -668,13 +672,13 @@ class ApiServerClient {
     };
     return Promise.try(() => this.init())
       .then(() => apiserver
-        .apis[`deployment.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .apis[`${opts.resourceGroup}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
         .namespaces(CONST.APISERVER.NAMESPACE)[opts.resourceType](opts.resourceId)
         .status.patch({
           body: patchedResource
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -691,7 +695,7 @@ class ApiServerClient {
         .get())
       .then(json => JSON.parse(json.body.status.response))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -708,17 +712,17 @@ class ApiServerClient {
         .get())
       .then(json => JSON.parse(json.body.status.lastOperation))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
   /**
- * @description Function to Update the state field
- * @param {string} opts.resourceType - Type of operation
- * @param {string} opts.resourceId - Unique id of operation
- * @param {Object} opts.lastOperation - Object to be set as response
- * @param {string} opts.stateValue - Value to set as state
- */
+   * @description Function to Update the state field
+   * @param {string} opts.resourceType - Type of operation
+   * @param {string} opts.resourceId - Unique id of operation
+   * @param {Object} opts.lastOperation - Object to be set as response
+   * @param {string} opts.stateValue - Value to set as state
+   */
   updateResourceStateAndLastOperation(opts) {
     logger.info('Updating Operation status with :', opts);
     const patchedResource = {
@@ -735,7 +739,7 @@ class ApiServerClient {
           body: patchedResource
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 

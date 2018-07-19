@@ -26,11 +26,13 @@ class BindManager extends BaseManager {
 
   _processBind(changeObjectBody) {
     const changedOptions = JSON.parse(changeObjectBody.spec.options);
+    const instance_guid = changeObjectBody.metadata.labels.instance_guid;
     logger.info('Triggering bind with the following options:', changedOptions);
     //const plan = catalog.getPlan(changedOptions.plan_id);
-    return DirectorService.createDirectorService(changeObjectBody.metadata.name, changedOptions)
+    return DirectorService.createDirectorService(instance_guid, changedOptions)
       .then(boshService => boshService.bind(changedOptions))
       .then(response => eventmesh.apiServerClient.updateResourceStateAndResponse({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
         resourceId: changeObjectBody.metadata.name,
         resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND,
         response: response,
@@ -39,11 +41,13 @@ class BindManager extends BaseManager {
   }
   _processUnbind(changeObjectBody) {
     const changedOptions = JSON.parse(changeObjectBody.spec.options);
+    const instance_guid = changeObjectBody.metadata.labels.instance_guid;
     logger.info('Triggering unbind with the following options:', changedOptions);
     //const plan = catalog.getPlan(changedOptions.plan_id);
-    return DirectorService.createDirectorService(changeObjectBody.metadata.name, changedOptions)
+    return DirectorService.createDirectorService(instance_guid, changedOptions)
       .then(boshService => boshService.unbind(changedOptions))
       .then(response => eventmesh.apiServerClient.updateResourceStateAndResponse({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
         resourceId: changeObjectBody.metadata.name,
         resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND,
         response: response,

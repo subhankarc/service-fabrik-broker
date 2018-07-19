@@ -33,6 +33,7 @@ class BOSHManager extends BaseManager {
     return DirectorService.createDirectorService(changeObjectBody.metadata.name, changedOptions)
       .then(boshService => boshService.create(changedOptions))
       .then(response => eventmesh.apiServerClient.updateResourceStateAndResponse({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
         resourceId: changeObjectBody.metadata.name,
         resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR,
         response: response,
@@ -47,6 +48,7 @@ class BOSHManager extends BaseManager {
     return DirectorService.createDirectorService(changeObjectBody.metadata.name, changedOptions)
       .then(boshService => boshService.update(changedOptions))
       .then(response => eventmesh.apiServerClient.updateResourceStateAndResponse({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
         resourceId: changeObjectBody.metadata.name,
         resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR,
         response: response,
@@ -61,6 +63,7 @@ class BOSHManager extends BaseManager {
     return DirectorService.createDirectorService(changeObjectBody.metadata.name, changedOptions)
       .then(boshService => boshService.delete(changedOptions))
       .then(response => eventmesh.apiServerClient.updateResourceStateAndResponse({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
         resourceId: changeObjectBody.metadata.name,
         resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR,
         response: response,

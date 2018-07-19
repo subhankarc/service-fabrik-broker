@@ -204,9 +204,9 @@ class ServiceBrokerApiController extends FabrikBaseController {
     const planId = req.query.plan_id;
     const plan = catalog.getPlan(planId);
     return eventmesh.apiServerClient.getResourceLastOperation({
-      resourceId: req.params.instance_id,
-      resourceType: plan.manager.name
-    })
+        resourceId: req.params.instance_id,
+        resourceType: plan.manager.name
+      })
       .then(done)
       .catch(AssertionError, failed)
       .catch(NotFound, notFound);
@@ -244,7 +244,14 @@ class ServiceBrokerApiController extends FabrikBaseController {
           value: params
         });
       })
-      .then(done)
+      .then(() => eventmesh.apiServerClient.getResourceOperationStatus({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
+        resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND,
+        resourceId: params.binding_id,
+        start_state: CONST.APISERVER.RESOURCE_STATE.IN_QUEUE,
+        started_at: new Date()
+      }))
+      .then(operationStatus => done(operationStatus.response))
       .catch(ServiceBindingAlreadyExists, conflict);
   }
 
@@ -269,17 +276,23 @@ class ServiceBrokerApiController extends FabrikBaseController {
       .try(() => {
         const planId = params.plan_id;
         const plan = catalog.getPlan(planId);
-        return eventmesh.apiServerClient.createOperation({
-          resourceId: req.params.instance_id,
+        return eventmesh.apiServerClient.updateOperationState({
           operationId: params.binding_id,
           operationName: CONST.APISERVER.RESOURCE_GROUPS.BIND,
           operationType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND,
-          state: CONST.APISERVER.RESOURCE_STATE.DELETE,
-          value: params
+          stateValue: CONST.APISERVER.RESOURCE_STATE.DELETE
         });
       })
+      .then(() => eventmesh.apiServerClient.getResourceOperationStatus({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
+        resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND,
+        resourceId: params.binding_id,
+        start_state: CONST.APISERVER.RESOURCE_STATE.DELETE,
+        started_at: new Date()
+      }))
+      .then(() => eventmesh.apiServerClient.deleteResource(CONST.APISERVER.RESOURCE_GROUPS.BIND, CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND, params.binding_id))
       .then(done)
-      .catch(ServiceBindingNotFound, gone);
+      .catch(NotFound, gone);
   }
 
 }
