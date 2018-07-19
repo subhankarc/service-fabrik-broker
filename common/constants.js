@@ -106,7 +106,6 @@ module.exports = Object.freeze({
     SHUTDOWN_WAIT_TIME: 5000
   },
   BACKUP: {
-    BACKUP_START_TIMEOUT: 15, //SECONDS
     TYPE: {
       ONLINE: 'online'
     },
@@ -228,6 +227,7 @@ module.exports = Object.freeze({
     }
   },
   APISERVER: {
+    OPERATION_TIMEOUT_IN_SECS: 60,
     WATCHER_REFRESH_INTERVAL: 1200000, // in ms ( 20 minutes )
     PORT: 9443,
     VERSION: '1.9',

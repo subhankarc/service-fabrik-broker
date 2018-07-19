@@ -8,6 +8,7 @@ const CONST = require('../../common/constants');
 const kc = require('kubernetes-client');
 const JSONStream = require('json-stream');
 const errors = require('../../common/errors');
+const Timeout = errors.Timeout;
 const BadRequest = errors.BadRequest;
 const NotFound = errors.NotFound;
 const Conflict = errors.Conflict;
@@ -21,23 +22,36 @@ const apiserver = new kc.Client({
   version: CONST.APISERVER.VERSION
 });
 
-function buildErrors(err) {
-  let throwErr;
-  switch (err.code) {
-  case CONST.HTTP_STATUS_CODE.BAD_REQUEST:
-    throwErr = new BadRequest(err.message);
-    break;
-  case CONST.HTTP_STATUS_CODE.NOT_FOUND:
-    throwErr = new NotFound(err.message);
-    break;
-  case CONST.HTTP_STATUS_CODE.CONFLICT:
-    throwErr = new Conflict(err.message);
-    break;
-  default:
-    throwErr = new InternalServerError(err.message);
-    break;
+function convertToHttpErrorAndThrow(err) {
+  let message = err.message;
+  if (err.error && err.error.description) {
+    message = `${message}. ${err.error.description}`;
   }
-  throw throwErr;
+  let newErr;
+  let code;
+  if (err.code) {
+    code = err.code;
+  } else if (err.status) {
+    code = err.status;
+  }
+  switch (code) {
+    case CONST.HTTP_STATUS_CODE.BAD_REQUEST:
+      newErr = new BadRequest(message);
+      break;
+    case CONST.HTTP_STATUS_CODE.NOT_FOUND:
+      newErr = new NotFound(message);
+      break;
+    case CONST.HTTP_STATUS_CODE.CONFLICT:
+      newErr = new Conflict(message);
+      break;
+    case CONST.HTTP_STATUS_CODE.FORBIDDEN:
+      newErr = new errors.Forbidden(message);
+      break;
+    default:
+      newErr = new InternalServerError(message);
+      break;
+  }
+  throw newErr;
 }
 
 class ApiServerClient {
@@ -56,6 +70,62 @@ class ApiServerClient {
           });
       }
     });
+  }
+
+  /**
+   * Poll for Status until opts.start_state changes
+   * @param {object} opts - Object containing options
+   * @param {string} opts.operationId - Id of the operation ex. backupGuid
+   * @param {string} opts.start_state - start state of the operation ex. in_queue
+   * @param {object} opts.started_at - Date object specifying operation start time
+   */
+  getResourceOperationStatus(opts) {
+    logger.info(`Waiting ${CONST.EVENTMESH_POLLER_DELAY} ms to get the operation state`);
+    let finalState;
+    return Promise.delay(CONST.EVENTMESH_POLLER_DELAY)
+      .then(() => this.getOperationState({
+        operationName: CONST.OPERATION_TYPE.BACKUP,
+        operationType: CONST.APISERVER.RESOURCE_TYPES.DEFAULT_BACKUP,
+        operationId: opts.operationId
+      }))
+      .then(state => {
+        const duration = (new Date() - opts.started_at) / 1000;
+        logger.info(`Polling for ${opts.start_state} duration: ${duration} `);
+        if (duration > CONST.APISERVER.OPERATION_TIMEOUT_IN_SECS) {
+          logger.error(`Backup with guid ${opts.operationId} not picked up from the queue`);
+          throw new Timeout(`Backup with guid ${opts.operationId} not picked up from the queue`);
+        }
+        if (state === opts.start_state) {
+          return this.getResourceOperationStatus(opts);
+        } else if (state === CONST.APISERVER.RESOURCE_STATE.ERROR) {
+          finalState = state;
+          return this.getOperationResponse({
+            operationName: CONST.OPERATION_TYPE.BACKUP,
+            operationType: CONST.APISERVER.RESOURCE_TYPES.DEFAULT_BACKUP,
+            operationId: opts.operationId,
+          })
+            .then(errorResponse => {
+              logger.info('Operation manager reported error', errorResponse);
+              return convertToHttpErrorAndThrow(errorResponse);
+            });
+        } else {
+          finalState = state;
+          return this.getOperationResponse({
+            operationName: CONST.OPERATION_TYPE.BACKUP,
+            operationType: CONST.APISERVER.RESOURCE_TYPES.DEFAULT_BACKUP,
+            operationId: opts.operationId,
+          });
+        }
+      })
+      .then(result => {
+        if (result.state) {
+          return result;
+        }
+        return {
+          state: finalState,
+          response: result
+        };
+      });
   }
 
   /**
@@ -85,7 +155,7 @@ class ApiServerClient {
         return stream;
       })
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -111,7 +181,7 @@ class ApiServerClient {
   createLock(lockType, body) {
     return this._createResource(CONST.APISERVER.RESOURCE_GROUPS.LOCK, lockType, body)
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -129,17 +199,26 @@ class ApiServerClient {
         }));
   }
 
+  patchResourceStatus(resourceGroup, resourceType, resourceId, statusDelta) {
+    return Promise.try(() => this.init())
+      .then(() => apiserver.apis[`${resourceGroup}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .namespaces(CONST.APISERVER.NAMESPACE)[resourceType](resourceId)
+        .status.patch({
+          body: statusDelta
+        }));
+  }
+
   deleteLock(resourceType, resourceId) {
     return this.deleteResource(CONST.APISERVER.RESOURCE_GROUPS.LOCK, resourceType, resourceId)
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
   updateResource(resourceGroup, resourceType, resourceId, delta) {
     return this.patchResource(resourceGroup, resourceType, resourceId, delta)
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -151,7 +230,7 @@ class ApiServerClient {
         return JSON.parse(resource.body.spec.options);
       })
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -160,7 +239,7 @@ class ApiServerClient {
       .then(() => apiserver.apis[`${resourceGroup}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
         .namespaces(CONST.APISERVER.NAMESPACE)[resourceType](resourceId).get())
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -175,28 +254,28 @@ class ApiServerClient {
     return this.createOperation(opts);
   }
 
-  // _updateResourceState(resourceType, resourceId, stateValue) {
-  //   const opts = {
-  //     operationId: resourceId,
-  //     resourceId: resourceId,
-  //     operationName: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
-  //     operationType: resourceType,
-  //     stateValue: stateValue
-  //   };
-  //   return this.updateOperationState(opts);
-  // }
+  _updateResourceState(resourceType, resourceId, stateValue) {
+    const opts = {
+      operationId: resourceId,
+      resourceId: resourceId,
+      operationName: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
+      operationType: resourceType,
+      stateValue: stateValue
+    };
+    return this.updateOperationState(opts);
+  }
 
-  // getResourceState(resourceType, resourceId) {
-  //   return Promise.try(() => this.init())
-  //     .then(() => apiserver
-  //       .apis[`${CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
-  //       .namespaces(CONST.APISERVER.NAMESPACE)[resourceType](resourceId)
-  //       .get())
-  //     .then(json => json.body.status.state)
-  //     .catch(err => {
-  //       return buildErrors(err);
-  //     });
-  // }
+  getResourceState(resourceType, resourceId) {
+    return Promise.try(() => this.init())
+      .then(() => apiserver
+        .apis[`${CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .namespaces(CONST.APISERVER.NAMESPACE)[resourceType](resourceId)
+        .get())
+      .then(json => json.body.status.state)
+      .catch(err => {
+        return convertToHttpErrorAndThrow(err);
+      });
+  }
 
   /**
    * @description Create Resource in Apiserver with the opts
@@ -232,7 +311,7 @@ class ApiServerClient {
           body: statusJson
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -247,7 +326,7 @@ class ApiServerClient {
     logger.info('Patching Operation with :', opts);
     return this.getOperationResponse(opts)
       .then(res => {
-        logger.info(`Patching ${res} with ${opts.value}`);
+        logger.info(`Patching ${JSON.stringify(res)} with ${JSON.stringify(opts.value)}`);
         opts.value = _.merge(res, opts.value);
         return this.updateOperationResponse(opts);
       });
@@ -275,7 +354,7 @@ class ApiServerClient {
           body: patchedResource
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -305,7 +384,26 @@ class ApiServerClient {
           body: patchedResource
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
+      });
+  }
+
+  /**
+   * @description Function to Update the error field
+   * @param {string} opts.operationName - Name of operation
+   * @param {string} opts.operationType - Type of operation
+   * @param {string} opts.operationId - Unique id of operation
+   * @param {Object} opts.error - Value to set as error
+   */
+  updateOperationError(opts) {
+    const operationStatus = {
+      'status': {
+        'error': JSON.stringify(opts.error)
+      }
+    };
+    return this.patchResourceStatus(opts.operationName, opts.operationType, opts.operationId, operationStatus)
+      .catch(err => {
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -333,7 +431,7 @@ class ApiServerClient {
           body: patchedResource
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -357,7 +455,7 @@ class ApiServerClient {
           body: patchedResource
         }))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -375,7 +473,7 @@ class ApiServerClient {
         .get())
       .then(json => json.body.metadata.labels[`last_${opts.operationName}_${opts.operationType}`])
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -389,7 +487,7 @@ class ApiServerClient {
   patchOperationOptions(opts) {
     return this.getOperationOptions(opts)
       .then(res => {
-        logger.info(`Patching ${res} with ${opts.value}`);
+        logger.info(`Patching ${JSON.stringify(res)} with ${JSON.stringify(opts.value)}`);
         opts.value = _.merge(res, opts.value);
         return this.updateOperationOptions(opts);
       });
@@ -411,7 +509,7 @@ class ApiServerClient {
     };
     return this.patchResource(opts.operationName, opts.operationType, opts.operationId, change)
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
   /**
@@ -431,7 +529,7 @@ class ApiServerClient {
         .get())
       .then(json => JSON.parse(json.body.spec.options))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -452,7 +550,7 @@ class ApiServerClient {
         .get())
       .then(json => json.body.status.state)
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -470,7 +568,7 @@ class ApiServerClient {
         .get())
       .then(json => JSON.parse(json.body.status.response))
       .catch(err => {
-        return buildErrors(err);
+        return convertToHttpErrorAndThrow(err);
       });
   }
 
@@ -509,15 +607,15 @@ class ApiServerClient {
       });
   }
 
-    /**
-   * @description Create Resource in Apiserver with the opts
-   * @param {string} opts.resourceId - Unique id of resource
-   * @param {string} opts.resourceType - Type of resource
-   * @param {Object} opts.value - Value to set for spec.options field of resource
-   * @param {Object} opts.state - State of resource
-   * @param {Object} opts.lastOperation - lastOperation of resource
-   * @param {Object} opts.response - lastOperation of resource
-   */
+  /**
+ * @description Create Resource in Apiserver with the opts
+ * @param {string} opts.resourceId - Unique id of resource
+ * @param {string} opts.resourceType - Type of resource
+ * @param {Object} opts.value - Value to set for spec.options field of resource
+ * @param {Object} opts.state - State of resource
+ * @param {Object} opts.lastOperation - lastOperation of resource
+ * @param {Object} opts.response - lastOperation of resource
+ */
   updateDeploymentResource(opts) {
     const resourceBody = {
       metadata: {
@@ -607,13 +705,13 @@ class ApiServerClient {
       });
   }
 
-    /**
-   * @description Function to Update the state field
-   * @param {string} opts.resourceType - Type of operation
-   * @param {string} opts.resourceId - Unique id of operation
-   * @param {Object} opts.lastOperation - Object to be set as response
-   * @param {string} opts.stateValue - Value to set as state
-   */
+  /**
+ * @description Function to Update the state field
+ * @param {string} opts.resourceType - Type of operation
+ * @param {string} opts.resourceId - Unique id of operation
+ * @param {Object} opts.lastOperation - Object to be set as response
+ * @param {string} opts.stateValue - Value to set as state
+ */
   updateResourceStateAndLastOperation(opts) {
     logger.info('Updating Operation status with :', opts);
     const patchedResource = {
