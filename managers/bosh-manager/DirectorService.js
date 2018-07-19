@@ -34,6 +34,8 @@ const Addons = bosh.manifest.Addons;
 const EvaluationContext = bosh.EvaluationContext;
 const BadRequest = errors.BadRequest;
 const formatUrl = require('url').format;
+const BasePlatformManager = require('../../broker/lib/fabrik/BasePlatformManager');
+
 
 class DirectorService extends BaseDirectorService {
   constructor(guid, plan) {
@@ -140,8 +142,7 @@ class DirectorService extends BaseDirectorService {
             .all([
               this.platformManager.preInstanceDeleteOperations({
                 guid: this.guid
-              })
-              ,
+              }),
               this.deleteRestoreFile()
             ]);
         }
@@ -762,19 +763,22 @@ class DirectorService extends BaseDirectorService {
     case 'done':
       return _.assign(operation, {
         description: `${action} deployment ${task.deployment} succeeded at ${timestamp}`,
-        state: 'succeeded'
+        state: 'succeeded',
+        resourceState: CONST.APISERVER.RESOURCE_STATE.SUCCEEDED
       });
     case 'error':
     case 'cancelled':
     case 'timeout':
       return _.assign(operation, {
         description: `${action} deployment ${task.deployment} failed at ${timestamp} with Error "${task.result}"`,
-        state: 'failed'
+        state: 'failed',
+        resourceState: CONST.APISERVER.RESOURCE_STATE.FAILED
       });
     default:
       return _.assign(operation, {
         description: `${action} deployment ${task.deployment} is still in progress`,
-        state: 'in progress'
+        state: 'in progress',
+        resourceState: CONST.APISERVER.RESOURCE_STATE.IN_PROGRESS
       });
     }
   }
@@ -1104,6 +1108,26 @@ class DirectorService extends BaseDirectorService {
         minDelay: 1000
       })
       .catch(err => logger.error(`Error occurred while scheduling auto-update for instance: ${this.guid} - `, err));
+  }
+
+  static createDirectorService(instanceId, options) {
+    const planId = options.plan_id;
+    const plan = catalog.getPlan(planId);
+    const context = _.get(options, 'context');
+    const directorService = new DirectorService(instanceId, plan);
+    return Promise
+      .try(() => context ? context : directorService.platformContext)
+      .then(context => directorService.assignPlatformManager(DirectorService.getPlatformManager(context.platform)))
+      .return(directorService);
+  }
+
+  static getPlatformManager(platform) {
+    const PlatformManager = (platform && CONST.PLATFORM_MANAGER[platform]) ? require(`../../broker/lib/fabrik/${CONST.PLATFORM_MANAGER[platform]}`) : ((platform && CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]) ? require(`../../broker/lib/fabrik/${CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]}`) : undefined);
+    if (PlatformManager === undefined) {
+      return new BasePlatformManager(platform);
+    } else {
+      return new PlatformManager(platform);
+    }
   }
 }
 

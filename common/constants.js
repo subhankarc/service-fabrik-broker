@@ -31,6 +31,7 @@ module.exports = Object.freeze({
   },
   EVENTMESH_POLLER_DELAY: 200,
   UNLOCK_RESOURCE_POLLER_INTERVAL: 3000,
+  DIRECTOR_RESOURCE_POLLER_INTERVAL: 3000,
   OPERATION: {
     SUCCEEDED: 'succeeded',
     FAILED: 'failed',
@@ -252,6 +253,7 @@ module.exports = Object.freeze({
       ERROR: 'error',
       FAILED: 'failed',
       ABORTED: 'aborted',
+      UPDATE: 'update'
     },
     RESOURCE_KEYS: {
       STATE: 'state',

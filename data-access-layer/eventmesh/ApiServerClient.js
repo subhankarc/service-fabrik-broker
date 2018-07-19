@@ -3,7 +3,6 @@
 const _ = require('lodash');
 const Promise = require('bluebird');
 const assert = require('assert');
-const config = require('../../common/config');
 const logger = require('../../common/logger');
 const CONST = require('../../common/constants');
 const kc = require('kubernetes-client');
@@ -176,28 +175,28 @@ class ApiServerClient {
     return this.createOperation(opts);
   }
 
-  _updateResourceState(resourceType, resourceId, stateValue) {
-    const opts = {
-      operationId: resourceId,
-      resourceId: resourceId,
-      operationName: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
-      operationType: resourceType,
-      stateValue: stateValue
-    };
-    return this.updateOperationState(opts);
-  }
+  // _updateResourceState(resourceType, resourceId, stateValue) {
+  //   const opts = {
+  //     operationId: resourceId,
+  //     resourceId: resourceId,
+  //     operationName: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
+  //     operationType: resourceType,
+  //     stateValue: stateValue
+  //   };
+  //   return this.updateOperationState(opts);
+  // }
 
-  getResourceState(resourceType, resourceId) {
-    return Promise.try(() => this.init())
-      .then(() => apiserver
-        .apis[`${CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
-        .namespaces(CONST.APISERVER.NAMESPACE)[resourceType](resourceId)
-        .get())
-      .then(json => json.body.status.state)
-      .catch(err => {
-        return buildErrors(err);
-      });
-  }
+  // getResourceState(resourceType, resourceId) {
+  //   return Promise.try(() => this.init())
+  //     .then(() => apiserver
+  //       .apis[`${CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+  //       .namespaces(CONST.APISERVER.NAMESPACE)[resourceType](resourceId)
+  //       .get())
+  //     .then(json => json.body.status.state)
+  //     .catch(err => {
+  //       return buildErrors(err);
+  //     });
+  // }
 
   /**
    * @description Create Resource in Apiserver with the opts
@@ -470,6 +469,166 @@ class ApiServerClient {
         .namespaces(CONST.APISERVER.NAMESPACE)[opts.operationType](opts.operationId)
         .get())
       .then(json => JSON.parse(json.body.status.response))
+      .catch(err => {
+        return buildErrors(err);
+      });
+  }
+
+
+
+  /**
+   * @description Create Resource in Apiserver with the opts
+   * @param {string} opts.resourceId - Unique id of resource
+   * @param {string} opts.resourceType - Type of resource
+   * @param {Object} opts.value - Value to set for spec.options field of resource
+   */
+  createResource(opts) {
+    const resourceBody = {
+      metadata: {
+        'name': `${opts.resourceId}`
+      },
+      spec: {
+        'options': JSON.stringify(opts.value)
+      },
+    };
+    logger.info(`Creating resource ${resourceBody.metadata.name} with options:`, opts.value);
+    const statusJson = {
+      status: {
+        state: CONST.APISERVER.RESOURCE_STATE.IN_QUEUE,
+        lastOperation: JSON.stringify({}),
+        response: JSON.stringify({})
+      }
+    };
+    return this._createResource('deployment', opts.resourceType, resourceBody)
+      .then(() => apiserver.apis[`deployment.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .namespaces(CONST.APISERVER.NAMESPACE)[opts.resourceType](opts.resourceId).status.patch({
+          body: statusJson
+        }))
+      .catch(err => {
+        return buildErrors(err);
+      });
+  }
+
+    /**
+   * @description Create Resource in Apiserver with the opts
+   * @param {string} opts.resourceId - Unique id of resource
+   * @param {string} opts.resourceType - Type of resource
+   * @param {Object} opts.value - Value to set for spec.options field of resource
+   * @param {Object} opts.state - State of resource
+   * @param {Object} opts.lastOperation - lastOperation of resource
+   * @param {Object} opts.response - lastOperation of resource
+   */
+  updateDeploymentResource(opts) {
+    const resourceBody = {
+      metadata: {
+        'name': `${opts.resourceId}`
+      },
+      spec: {
+        'options': JSON.stringify(opts.value)
+      },
+    };
+    logger.info(`Creating resource ${resourceBody.metadata.name} with options:`, opts);
+    const statusJson = {
+      status: {
+        state: opts.state,
+        lastOperation: JSON.stringify(opts.lastOperation),
+        response: JSON.stringify(opts.response)
+      }
+    };
+    return this.patchResource('deployment', opts.resourceType, opts.resourceId, resourceBody)
+      .then(() => apiserver.apis[`deployment.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .namespaces(CONST.APISERVER.NAMESPACE)[opts.resourceType](opts.resourceId).status.patch({
+          body: statusJson
+        }))
+      .catch(err => {
+        return buildErrors(err);
+      });
+  }
+
+
+  /**
+   * @description Function to Update the state field
+   * @param {string} opts.resourceType - Type of operation
+   * @param {string} opts.resourceId - Unique id of operation
+   * @param {Object} opts.response - Object to be set as response
+   * @param {string} opts.stateValue - Value to set as state
+   */
+  updateResourceStateAndResponse(opts) {
+    logger.info('Updating Operation status with :', opts);
+    const patchedResource = {
+      'status': {
+        'state': opts.stateValue,
+        'response': JSON.stringify(opts.response)
+      }
+    };
+    return Promise.try(() => this.init())
+      .then(() => apiserver
+        .apis[`deployment.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .namespaces(CONST.APISERVER.NAMESPACE)[opts.resourceType](opts.resourceId)
+        .status.patch({
+          body: patchedResource
+        }))
+      .catch(err => {
+        return buildErrors(err);
+      });
+  }
+
+  /**
+   * @description Get Operation Response
+   * @param {string} opts.resourceType - Type of operation
+   * @param {string} opts.resourceId - Unique id of operation
+   */
+  getResourceResponse(opts) {
+    return Promise.try(() => this.init())
+      .then(() => apiserver
+        .apis[`deployment.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .namespaces(CONST.APISERVER.NAMESPACE)[opts.resourceType](opts.resourceId)
+        .get())
+      .then(json => JSON.parse(json.body.status.response))
+      .catch(err => {
+        return buildErrors(err);
+      });
+  }
+
+  /**
+   * @description Get Operation Response
+   * @param {string} opts.resourceType - Type of operation
+   * @param {string} opts.resourceId - Unique id of operation
+   */
+  getResourceLastOperation(opts) {
+    return Promise.try(() => this.init())
+      .then(() => apiserver
+        .apis[`deployment.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .namespaces(CONST.APISERVER.NAMESPACE)[opts.resourceType](opts.resourceId)
+        .get())
+      .then(json => JSON.parse(json.body.status.lastOperation))
+      .catch(err => {
+        return buildErrors(err);
+      });
+  }
+
+    /**
+   * @description Function to Update the state field
+   * @param {string} opts.resourceType - Type of operation
+   * @param {string} opts.resourceId - Unique id of operation
+   * @param {Object} opts.lastOperation - Object to be set as response
+   * @param {string} opts.stateValue - Value to set as state
+   */
+  updateResourceStateAndLastOperation(opts) {
+    logger.info('Updating Operation status with :', opts);
+    const patchedResource = {
+      'status': {
+        'state': opts.stateValue,
+        'lastOperation': JSON.stringify(opts.lastOperation)
+      }
+    };
+    return Promise.try(() => this.init())
+      .then(() => apiserver
+        .apis[`deployment.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]
+        .namespaces(CONST.APISERVER.NAMESPACE)[opts.resourceType](opts.resourceId)
+        .status.patch({
+          body: patchedResource
+        }))
       .catch(err => {
         return buildErrors(err);
       });

@@ -12,14 +12,13 @@ const AssertionError = assert.AssertionError;
 const BadRequest = errors.BadRequest;
 const PreconditionFailed = errors.PreconditionFailed;
 const ServiceInstanceAlreadyExists = errors.ServiceInstanceAlreadyExists;
+const NotFound = errors.NotFound;
 const ServiceInstanceNotFound = errors.ServiceInstanceNotFound;
 const ServiceBindingAlreadyExists = errors.ServiceBindingAlreadyExists;
 const ServiceBindingNotFound = errors.ServiceBindingNotFound;
 const ContinueWithNext = errors.ContinueWithNext;
 const CONST = require('../common/constants');
-const config = require('../common/config');
-const BasePlatformManager = require('../broker/lib/fabrik/BasePlatformManager');
-const DirectorService = require('../managers/bosh-manager');
+const eventmesh = require('../data-access-layer/eventmesh');
 
 class ServiceBrokerApiController extends FabrikBaseController {
   constructor() {
@@ -46,45 +45,17 @@ class ServiceBrokerApiController extends FabrikBaseController {
     res.status(CONST.HTTP_STATUS_CODE.OK).json(this.fabrik.getPlatformManager(req.params.platform).getCatalog(catalog));
   }
 
-  createDirectorService(req) {
-    const instance_id = req.params.instance_id;
-    const service_id = req.body.service_id || req.query.service_id;
-    const plan_id = req.body.plan_id || req.query.plan_id;
-    const plan = catalog.getPlan(plan_id);
-    this.validateUuid(instance_id, 'Service Instance ID');
-    this.validateUuid(service_id, 'Service ID');
-    this.validateUuid(plan_id, 'Plan ID');
-    const encodedOp = _.get(req, 'query.operation', undefined);
-    const operation = encodedOp === undefined ? null : utils.decodeBase64(encodedOp);
-    const context = _.get(req, 'body.context') || _.get(operation, 'context');
-    //TODO : assign the platform context as well here.
-    const directorService = new DirectorService(instance_id, plan);
-    return Promise
-      .try(() => context ? context : directorService.platformContext)
-      .then(context => directorService.assignPlatformManager(ServiceBrokerApiController.getPlatformManager(context.platform)))
-      .return(directorService);
-  }
-
-  static getPlatformManager(platform) {
-    const PlatformManager = (platform && CONST.PLATFORM_MANAGER[platform]) ? require(`../broker/lib/fabrik/${CONST.PLATFORM_MANAGER[platform]}`) : ((platform && CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]) ? require(`../broker/lib/fabrik/${CONST.PLATFORM_MANAGER[CONST.PLATFORM_ALIAS_MAPPINGS[platform]]}`) : undefined);
-    if (PlatformManager === undefined) {
-      return new BasePlatformManager(platform);
-    } else {
-      return new PlatformManager(platform);
-    }
-  }
-
   putInstance(req, res) {
-    const params = _.omit(req.body, 'plan_id', 'service_id');
+    const params = req.body;
 
-    function done(result) {
+    function done() {
       let statusCode = CONST.HTTP_STATUS_CODE.CREATED;
       const body = {
         dashboard_url: req.instance.dashboardUrl
       };
       if (req.instance.async) {
         statusCode = CONST.HTTP_STATUS_CODE.ACCEPTED;
-        body.operation = utils.encodeBase64(result);
+        //body.operation = utils.encodeBase64(result);
       }
       res.status(statusCode).send(body);
     }
@@ -95,10 +66,18 @@ class ServiceBrokerApiController extends FabrikBaseController {
     }
 
     req.operation_type = CONST.OPERATION_TYPE.CREATE;
-
     return Promise
-      .try(() => this.createDirectorService(req))
-      .then(directorService => directorService.create(params))
+      //.try(() => this.createDirectorService(req))
+      //.then(directorService => directorService.create(params))
+      .try(() => {
+        const planId = params.plan_id;
+        const plan = catalog.getPlan(planId);
+        return eventmesh.apiServerClient.createResource({
+          resourceId: req.params.instance_id,
+          resourceType: plan.manager.name,
+          value: params
+        });
+      })
       .then(done)
       .catch(ServiceInstanceAlreadyExists, conflict);
   }
@@ -106,7 +85,7 @@ class ServiceBrokerApiController extends FabrikBaseController {
   patchInstance(req, res) {
     const params = _
       .chain(req.body)
-      .omit('plan_id', 'service_id')
+      //.omit('plan_id', 'service_id')
       .cloneDeep()
       .value();
     //cloning here so that the DirectorInstance.update does not unset the 'service-fabrik-operation' from original req.body object
@@ -116,7 +95,7 @@ class ServiceBrokerApiController extends FabrikBaseController {
       const body = {};
       if (req.instance.async) {
         statusCode = CONST.HTTP_STATUS_CODE.ACCEPTED;
-        body.operation = utils.encodeBase64(result);
+        //body.operation = utils.encodeBase64(result);
       }
       res.status(statusCode).send(body);
     }
@@ -128,21 +107,35 @@ class ServiceBrokerApiController extends FabrikBaseController {
         if (!req.manager.isUpdatePossible(params.previous_values.plan_id)) {
           throw new BadRequest(`Update to plan '${req.manager.plan.name}' is not possible`);
         }
-        return this.createDirectorService(req);
+        //return this.createDirectorService(req);
       })
-      .then(directorService => directorService.update(params))
+
+      //.then(directorService => directorService.update(params))
+      //TODO : handle existing cases
+      .then(() => {
+        const planId = params.plan_id;
+        const plan = catalog.getPlan(planId);
+        return eventmesh.apiServerClient.updateDeploymentResource({
+          resourceId: req.params.instance_id,
+          resourceType: plan.manager.name,
+          value: params,
+          state: CONST.APISERVER.RESOURCE_STATE.UPDATE,
+          lastOperation: {},
+          response: {}
+        });
+      })
       .then(done);
   }
 
   deleteInstance(req, res) {
-    const params = _.omit(req.query, 'plan_id', 'service_id');
+    const params = req.query;
 
     function done(result) {
       let statusCode = CONST.HTTP_STATUS_CODE.OK;
       const body = {};
       if (req.instance.async) {
         statusCode = CONST.HTTP_STATUS_CODE.ACCEPTED;
-        body.operation = utils.encodeBase64(result);
+        //body.operation = utils.encodeBase64(result);
       }
       res.status(statusCode).send(body);
     }
@@ -154,17 +147,29 @@ class ServiceBrokerApiController extends FabrikBaseController {
     req.operation_type = CONST.OPERATION_TYPE.DELETE;
 
     return Promise
-      .try(() => this.createDirectorService(req))
-      .then(directorService => directorService.delete(params))
+      // .try(() => this.createDirectorService(req))
+      // .then(directorService => directorService.delete(params))
+      .try(() => {
+        const planId = params.plan_id;
+        const plan = catalog.getPlan(planId);
+        return eventmesh.apiServerClient.updateDeploymentResource({
+          resourceId: req.params.instance_id,
+          resourceType: plan.manager.name,
+          value: params,
+          state: CONST.APISERVER.RESOURCE_STATE.DELETE,
+          lastOperation: {},
+          response: {}
+        });
+      })
       .then(done)
       .catch(ServiceInstanceNotFound, gone);
   }
   getLastInstanceOperation(req, res) {
-    const encodedOp = _.get(req, 'query.operation', undefined);
-    const operation = encodedOp === undefined ? null : utils.decodeBase64(encodedOp);
-    const action = _.capitalize(operation.type);
-    const instanceType = req.instance.constructor.typeDescription;
-    const guid = req.instance.guid;
+    // const encodedOp = _.get(req, 'query.operation', undefined);
+    // const operation = encodedOp === undefined ? null : utils.decodeBase64(encodedOp);
+    // const action = _.capitalize(operation.type);
+    // const instanceType = req.instance.constructor.typeDescription;
+    // const guid = req.instance.guid;
 
     function done(result) {
       const body = _.pick(result, 'state', 'description');
@@ -190,17 +195,21 @@ class ServiceBrokerApiController extends FabrikBaseController {
     }
 
     function notFound(err) {
-      if (operation.type === 'delete') {
+//      if (operation.type === 'delete') {
         return gone();
-      }
-      failed(err);
+//      }
+//TODO : for non delete case, check when notfound is thrown and handle. similarly for AssertionError
+//      failed(err);
     }
-
-    return this.createDirectorService(req)
-      .then(directorService => directorService.lastOperation(operation))
+    const planId = req.query.plan_id;
+    const plan = catalog.getPlan(planId);
+    return eventmesh.apiServerClient.getResourceLastOperation({
+        resourceId: req.params.instance_id,
+        resourceType: plan.manager.name
+      })
       .then(done)
       .catch(AssertionError, failed)
-      .catch(ServiceInstanceNotFound, notFound);
+      .catch(NotFound, notFound);
   }
 
   putBinding(req, res) {
