@@ -9,6 +9,7 @@ const kc = require('kubernetes-client');
 const JSONStream = require('json-stream');
 const errors = require('../../common/errors');
 const Timeout = errors.Timeout;
+const config = require('../../common/config');
 const BadRequest = errors.BadRequest;
 const NotFound = errors.NotFound;
 const Conflict = errors.Conflict;
@@ -16,6 +17,7 @@ const InternalServerError = errors.InternalServerError;
 
 const apiserver = new kc.Client({
   config: {
+    // url: `https://${config.apiserver.ip}:${config.apiserver.port}`,
     url: `https://${config.internal.ip}:${CONST.APISERVER.PORT}`,
     insecureSkipTlsVerify: true
   },
@@ -249,7 +251,8 @@ class ApiServerClient {
       resourceId: resourceId,
       operationName: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
       operationType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR,
-      value: val
+      value: val,
+      lastOperation: 'created'
     };
     return this.createOperation(opts);
   }
@@ -283,6 +286,8 @@ class ApiServerClient {
    * @param {string} opts.operationName - Name of operation
    * @param {string} opts.operationType - Type of operation
    * @param {string} opts.operationId - Unique id of operation
+   * @param {string} opts.lastOperation(optional) - last operation string
+   * @param {string} opts.state(optional) - state of resource
    * @param {Object} opts.value - Value to set for spec.options field of resource
    */
   createOperation(opts) {
@@ -298,12 +303,14 @@ class ApiServerClient {
       },
     };
     logger.info(`Creating resource ${resourceBody.metadata.name} with options:`, opts.value);
+    let status = {};
+    status.state = opts.state ? opts.state : CONST.APISERVER.RESOURCE_STATE.IN_QUEUE;
+    if (opts.lastOperation) {
+      status.lastOperation = opts.lastOperation;
+    }
+    status.response = opts.response ? opts.response : JSON.stringify({});
     const statusJson = {
-      status: {
-        state: CONST.APISERVER.RESOURCE_STATE.IN_QUEUE,
-        lastOperation: 'created',
-        response: JSON.stringify({})
-      }
+      status: status
     };
     return this._createResource(opts.operationName, opts.operationType, resourceBody)
       .then(() => apiserver.apis[`${opts.operationName}.${CONST.APISERVER.HOSTNAME}`][CONST.APISERVER.API_VERSION]

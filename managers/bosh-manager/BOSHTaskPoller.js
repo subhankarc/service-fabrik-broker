@@ -34,7 +34,7 @@ class BOSHTaskPoller {
           if (response.type === 'delete') {
             clearInterval(interval);
             BOSHTaskPoller.pollers[object.metadata.name] = false;
-            return eventmesh.apiServerClient.deleteResource(CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT, CONST.APISERVER.RESOURCE_TYPES.DIRECTOR, object.metadata.name)
+            return eventmesh.apiServerClient.deleteResource(CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT, CONST.APISERVER.RESOURCE_TYPES.DIRECTOR, object.metadata.name);
           } else {
             //TODO set error field
           }

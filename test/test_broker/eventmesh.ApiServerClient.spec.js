@@ -191,10 +191,10 @@ describe('eventmesh', () => {
       it('calls the patch rest api to edit lock type resource', done => {
         nockPatchResource('lock', 'deploymentlock', 'l1', sampleLockResource);
         apiserver.updateResource('lock', 'deploymentlock', 'l1', {
-            spec: {
-              options: sampleLockResource.spec.options
-            }
-          })
+          spec: {
+            options: sampleLockResource.spec.options
+          }
+        })
           .then(res => {
             expect(res.statusCode).to.eql(200);
             expect(res.body).to.eql(sampleLockResource);
@@ -366,7 +366,8 @@ describe('eventmesh', () => {
         operationId: 'b1',
         value: {
           key: 'value'
-        }
+        },
+        lastOperation: 'created'
       };
       const input = {
         metadata: {

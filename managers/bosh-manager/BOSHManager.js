@@ -5,11 +5,7 @@ const eventmesh = require('../../data-access-layer/eventmesh');
 const logger = require('../../common/logger');
 const CONST = require('../../common/constants');
 const BaseManager = require('../BaseManager');
-const DBManager = require('../../broker/lib/fabrik/DBManager');
 const DirectorService = require('./DirectorService');
-
-/* jshint nonew:false */
-new DBManager(); //to start the BnRStatusPoller
 
 class BOSHManager extends BaseManager {
 

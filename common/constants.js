@@ -237,11 +237,15 @@ module.exports = Object.freeze({
     RESOURCE_GROUPS: {
       LOCK: 'lock',
       DEPLOYMENT: 'deployment',
-      BACKUP: 'backup'
+      BACKUP: 'backup',
+      BIND: 'bind'
     },
     RESOURCE_TYPES: {
       DEPLOYMENT_LOCKS: 'deploymentlocks',
       DIRECTOR: 'directors',
+      DOCKER: 'dockers',
+      DIRECTOR_BIND: 'directorbinds',
+      DOCKER_BIND: 'dockerbinds',
       DEFAULT_BACKUP: 'defaultbackups'
     },
     RESOURCE_STATE: {
