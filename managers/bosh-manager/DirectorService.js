@@ -33,7 +33,6 @@ const Header = bosh.manifest.Header;
 const Addons = bosh.manifest.Addons;
 const EvaluationContext = bosh.EvaluationContext;
 const BadRequest = errors.BadRequest;
-const formatUrl = require('url').format;
 const BasePlatformManager = require('../../broker/lib/fabrik/BasePlatformManager');
 
 
@@ -53,28 +52,6 @@ class DirectorService extends BaseDirectorService {
 
   assignPlatformManager(platformManager) {
     this.platformManager = platformManager;
-  }
-
-  get dashboardUrl() {
-    return this.getDashboardUrl(this.guid);
-  }
-
-  get securityGroupName() {
-    return this.getSecurityGroupName(this.guid);
-  }
-
-  getSecurityGroupName(guid) {
-    return `${this.constructor.prefix}-${guid}`;
-  }
-
-  getDashboardUrl(guid) {
-    return formatUrl(_
-      .chain(config.external)
-      .pick('protocol', 'host')
-      .set('slashes', true)
-      .set('pathname', `/manage/instances/${this.service.id}/${this.plan.id}/${guid}`)
-      .value()
-    );
   }
 
   get platformContext() {
