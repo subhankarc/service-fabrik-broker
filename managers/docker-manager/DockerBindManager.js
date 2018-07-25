@@ -5,13 +5,13 @@ const eventmesh = require('../../data-access-layer/eventmesh');
 const logger = require('../../common/logger');
 const CONST = require('../../common/constants');
 const BaseManager = require('../BaseManager');
-const DirectorService = require('./DirectorService');
+const DockerService = require('./DockerService');
 
-class BindManager extends BaseManager {
+class DockerBindManager extends BaseManager {
 
   init() {
     const queryString = `state in (${CONST.APISERVER.RESOURCE_STATE.IN_QUEUE},${CONST.APISERVER.RESOURCE_STATE.DELETE})`;
-    return this.registerWatcher(CONST.APISERVER.RESOURCE_GROUPS.BIND, CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND, queryString);
+    return this.registerWatcher(CONST.APISERVER.RESOURCE_GROUPS.BIND, CONST.APISERVER.RESOURCE_TYPES.DOCKER_BIND, queryString);
   }
 
   processRequest(requestObjectBody) {
@@ -29,12 +29,12 @@ class BindManager extends BaseManager {
     const instance_guid = changeObjectBody.metadata.labels.instance_guid;
     logger.info('Triggering bind with the following options:', changedOptions);
     //const plan = catalog.getPlan(changedOptions.plan_id);
-    return DirectorService.createDirectorService(instance_guid, changedOptions)
-      .then(boshService => boshService.bind(changedOptions))
+    return DockerService.createDockerService(instance_guid, changedOptions)
+      .then(dockerService => dockerService.bind(changedOptions))
       .then(response => eventmesh.apiServerClient.updateResourceStateAndResponse({
         resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
         resourceId: changeObjectBody.metadata.name,
-        resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND,
+        resourceType: CONST.APISERVER.RESOURCE_TYPES.DOCKER_BIND,
         response: response,
         stateValue: CONST.APISERVER.RESOURCE_STATE.SUCCEEDED
       }));
@@ -44,18 +44,16 @@ class BindManager extends BaseManager {
     const instance_guid = changeObjectBody.metadata.labels.instance_guid;
     logger.info('Triggering unbind with the following options:', changedOptions);
     //const plan = catalog.getPlan(changedOptions.plan_id);
-    return DirectorService.createDirectorService(instance_guid, changedOptions)
-      .then(boshService => boshService.unbind(changedOptions))
+    return DockerService.createDockerService(instance_guid, changedOptions)
+      .then(dockerService => dockerService.unbind(changedOptions))
       .then(response => eventmesh.apiServerClient.updateResourceStateAndResponse({
         resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
         resourceId: changeObjectBody.metadata.name,
-        resourceType: CONST.APISERVER.RESOURCE_TYPES.DIRECTOR_BIND,
+        resourceType: CONST.APISERVER.RESOURCE_TYPES.DOCKER_BIND,
         response: response,
         stateValue: CONST.APISERVER.RESOURCE_STATE.SUCCEEDED
       }));
   }
-
-
 }
 
-module.exports = BindManager;
+module.exports = DockerBindManager;
