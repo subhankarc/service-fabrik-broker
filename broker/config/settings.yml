@@ -198,9 +198,11 @@ defaults: &defaults
     private_key: <%= certificate('apiserver.key') %>
     crds:
       "deployment.servicefabrik.io_v1alpha1_directors.yaml": <%=base64_template('crds/deployment.servicefabrik.io_v1alpha1_directors.yaml') %>
+      "deployment.servicefabrik.io_v1alpha1_apsaras.yaml": <%=base64_template('crds/deployment.servicefabrik.io_v1alpha1_apsaras.yaml') %>
       "lock.servicefabrik.io_v1alpha1_deploymentlocks.yaml": <%= base64_template('crds/lock.servicefabrik.io_v1alpha1_deploymentlocks.yaml') %>
       "backup.servicefabrik.io_v1alpha1_defaultrestores.yaml": <%= base64_template('crds/backup.servicefabrik.io_v1alpha1_defaultrestores.yaml') %>
       "bind.servicefabrik.io_v1alpha1_directorbinds.yaml": <%= base64_template('crds/bind.servicefabrik.io_v1alpha1_directorbinds.yaml') %>
+      "bind.servicefabrik.io_v1alpha1_apsarabinds.yaml": <%= base64_template('crds/bind.servicefabrik.io_v1alpha1_apsarabinds.yaml') %>
       "bind.servicefabrik.io_v1alpha1_dockerbinds.yaml": <%= base64_template('crds/bind.servicefabrik.io_v1alpha1_dockerbinds.yaml') %>
       "backup.servicefabrik.io_v1alpha1_defaultbackups.yaml": <%= base64_template('crds/backup.servicefabrik.io_v1alpha1_defaultbackups.yaml') %>
       "deployment.servicefabrik.io_v1alpha1_dockers.yaml": <%= base64_template('crds/deployment.servicefabrik.io_v1alpha1_dockers.yaml') %>
@@ -550,6 +552,59 @@ defaults: &defaults
   # SERVICES CATALOG #
   ####################
   services:
+  #############################
+  # ALICLOUD APSARADB SERVICE #
+  #############################
+  - id: '34731fb8-7b84-4f57-914f-c3d55d793dd4'
+    name: 'apsaradb'
+    description: &description 'Alicloud Apsara DB service provisioned the Service Fabrik'
+    bindable: true
+    tags:
+    - 'apsara'
+    - 'no-not-use'
+    metadata:
+      displayName: 'Apsara'
+      longDescription: *description
+      providerDisplayName: 'AliCloud Apsara DB'
+      documentationUrl: 'https://alicloud.com/'
+      supportUrl: 'https://alicloud.com/'
+    dashboard_client:
+      id: 'service-fabrik-apsara-client'
+      secret: 'service-fabrik-apsara-secret'
+      redirect_uri: <%= redirect_uri %>
+    plan_updateable: true
+    supported_platform:
+    - k8s
+    - cf
+    plans:
+    ###########################
+    #      SERVICE PLANS      #
+    ###########################
+    - id: '366c5078-df6e-427d-8fb2-c76af50c0f56'
+      name: 'v1.0'
+      free: true
+      manager:
+        name: 'apsara'
+        async: true
+        resource_mappings:
+          resource_group: 'deployment.servicefabrik.io'
+          resource_type: 'apsaras'
+          bind:
+            resource_group: 'bind.servicefabrik.io'
+            resource_type: 'apsarabinds'
+      description: 'Alicloud Apsara DB service provisioned the Service Fabrik (for non-productive usage)'
+      metadata:
+        costs:
+        - amount:
+            usd: 0.0
+          unit: 'MONTHLY'
+        bullets:
+        - 'AliCloud Deployment'
+        - '128 MB Memory'
+        - '100 MB Disk'
+
+
+
   #####################
   # BLUEPRINT SERVICE #
   #####################
@@ -575,7 +630,7 @@ defaults: &defaults
     supported_platform:
     - k8s
     - cf
-    actions: Blueprint
+    #actions: Blueprint
     backup_interval: '8 hours'
     pitr: true
     plans:
@@ -697,7 +752,7 @@ defaults: &defaults
       id: 'bc158c9a-7934-401e-94ab-057082a5073f'
       name: 'v1.0-xsmall'
       free: false
-      actions: ReserveIps
+      #actions: ReserveIps
       manager: &manager_plan3
         name: 'director'
         async: true
