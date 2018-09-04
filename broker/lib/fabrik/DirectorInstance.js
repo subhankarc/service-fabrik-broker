@@ -23,28 +23,6 @@ class DirectorInstance extends BaseInstance {
     this.networkSegmentIndex = undefined;
   }
 
-  get platformContext() {
-    return Promise.try(() => this.networkSegmentIndex ? this.deploymentName : this.manager.director.getDeploymentNameForInstanceId(this.guid))
-      .then(deploymentName => this.manager.director.getDeploymentProperty(deploymentName, CONST.PLATFORM_CONTEXT_KEY))
-      .then(context => JSON.parse(context))
-      .catch(NotFound, () => {
-        /* Following is to handle existing deployments. 
-           For them platform-context is not saved in deployment property. Defaults to CF.
-         */
-        logger.warn(`Deployment property '${CONST.PLATFORM_CONTEXT_KEY}' not found for instance '${this.guid}'.\ 
-        Setting default platform as '${CONST.PLATFORM.CF}'`);
-
-        const context = {
-          platform: CONST.PLATFORM.CF
-        };
-        return context;
-      });
-  }
-
-  static get typeDescription() {
-    return 'deployment';
-  }
-
   get deploymentName() {
     return this.manager.getDeploymentName(this.guid, this.networkSegmentIndex);
   }
