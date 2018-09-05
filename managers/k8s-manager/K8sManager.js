@@ -9,6 +9,7 @@ const errors = require('../../common/errors');
 const utils = require('../../common/utils');
 const ServiceInstanceNotFound = errors.ServiceInstanceNotFound;
 const assert = require('assert');
+const child_process = require('child_process');
 
 class K8sManager extends BaseManager {
   init() {
@@ -57,12 +58,11 @@ class K8sManager extends BaseManager {
     logger.info('Creating deployment resource with the following options:', changedOptions);
     //Put your code here
     const response = {
-      'foo': 'bar'
+      'deployment_name': changeObjectBody.metadata.name
     };
-    const child_process = require('child_process');
     return Promise.try(() => {
         // spawn a bin
-        return child_process.spawn('create', changeObjectBody.metadata.name, {});
+        return child_process.spawnSync('/Users/i068838/git/kube-provisioner/src/kube-provisioner/create', [changeObjectBody.metadata.name]);
       })
       .then(() => eventmesh.apiServerClient.updateResource({
         resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
@@ -104,22 +104,26 @@ class K8sManager extends BaseManager {
     logger.info('Deleting deployment resource with the following options:', changedOptions);
     //Put your code here
     const response = {
-      'foo': 'bar'
+      'deployment_name': changeObjectBody.metadata.name
     };
-    return eventmesh.apiServerClient.updateResource({
-        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
-        resourceType: 'kubes',
-        resourceId: changeObjectBody.metadata.name,
-        status: {
-          response: response,
-          state: CONST.APISERVER.RESOURCE_STATE.IN_PROGRESS
-        }
+    return Promise.try(() => {
+        // spawn a bin
+        return child_process.spawnSync('/Users/i068838/git/kube-provisioner/src/kube-provisioner/delete', [changeObjectBody.metadata.name]);
       })
-      .catch(ServiceInstanceNotFound, () => eventmesh.apiServerClient.deleteResource({
-        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
-        resourceType: 'kubes',
-        resourceId: changeObjectBody.metadata.name
-      }));
+      .then(() => eventmesh.apiServerClient.updateResource({
+          resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
+          resourceType: 'kubes',
+          resourceId: changeObjectBody.metadata.name,
+          status: {
+            response: response,
+            state: CONST.APISERVER.RESOURCE_STATE.IN_PROGRESS
+          }
+        })
+        .catch(ServiceInstanceNotFound, () => eventmesh.apiServerClient.deleteResource({
+          resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
+          resourceType: 'kubes',
+          resourceId: changeObjectBody.metadata.name
+        })));
   }
 }
 
