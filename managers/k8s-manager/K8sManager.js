@@ -59,15 +59,20 @@ class K8sManager extends BaseManager {
     const response = {
       'foo': 'bar'
     };
-    return eventmesh.apiServerClient.updateResource({
-      resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
-      resourceType: 'kubes',
-      resourceId: changeObjectBody.metadata.name,
-      status: {
-        response: response,
-        state: CONST.APISERVER.RESOURCE_STATE.IN_PROGRESS
-      }
-    });
+    const child_process = require('child_process');
+    return Promise.try(() => {
+        // spawn a bin
+        return child_process.spawn('create', changeObjectBody.metadata.name, {});
+      })
+      .then(() => eventmesh.apiServerClient.updateResource({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
+        resourceType: 'kubes',
+        resourceId: changeObjectBody.metadata.name,
+        status: {
+          response: response,
+          state: CONST.APISERVER.RESOURCE_STATE.IN_PROGRESS
+        }
+      }));
   }
 
   _processUpdate(changeObjectBody) {
