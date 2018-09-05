@@ -199,10 +199,12 @@ defaults: &defaults
     crds:
       "deployment.servicefabrik.io_v1alpha1_directors.yaml": <%=base64_template('crds/deployment.servicefabrik.io_v1alpha1_directors.yaml') %>
       "deployment.servicefabrik.io_v1alpha1_apsaras.yaml": <%=base64_template('crds/deployment.servicefabrik.io_v1alpha1_apsaras.yaml') %>
+      "deployment.servicefabrik.io_v1alpha1_kubes.yaml": <%=base64_template('crds/deployment.servicefabrik.io_v1alpha1_kubes.yaml') %>
       "lock.servicefabrik.io_v1alpha1_deploymentlocks.yaml": <%= base64_template('crds/lock.servicefabrik.io_v1alpha1_deploymentlocks.yaml') %>
       "backup.servicefabrik.io_v1alpha1_defaultrestores.yaml": <%= base64_template('crds/backup.servicefabrik.io_v1alpha1_defaultrestores.yaml') %>
       "bind.servicefabrik.io_v1alpha1_directorbinds.yaml": <%= base64_template('crds/bind.servicefabrik.io_v1alpha1_directorbinds.yaml') %>
       "bind.servicefabrik.io_v1alpha1_apsarabinds.yaml": <%= base64_template('crds/bind.servicefabrik.io_v1alpha1_apsarabinds.yaml') %>
+      "bind.servicefabrik.io_v1alpha1_kubebinds.yaml": <%= base64_template('crds/bind.servicefabrik.io_v1alpha1_kubebinds.yaml') %>
       "bind.servicefabrik.io_v1alpha1_dockerbinds.yaml": <%= base64_template('crds/bind.servicefabrik.io_v1alpha1_dockerbinds.yaml') %>
       "backup.servicefabrik.io_v1alpha1_defaultbackups.yaml": <%= base64_template('crds/backup.servicefabrik.io_v1alpha1_defaultbackups.yaml') %>
       "deployment.servicefabrik.io_v1alpha1_dockers.yaml": <%= base64_template('crds/deployment.servicefabrik.io_v1alpha1_dockers.yaml') %>
@@ -603,7 +605,56 @@ defaults: &defaults
         - '128 MB Memory'
         - '100 MB Disk'
 
-
+  #############################
+  # ALICLOUD APSARADB SERVICE #
+  #############################
+  - id: '33731fb8-7b84-4f57-914f-c3d55d793dd4'
+    name: 'pg-crunchydata'
+    description: &description 'PostgreSQL Crunchy Data on K8S provisioned by Service Fabrik'
+    bindable: true
+    tags:
+    - 'k8s'
+    - 'no-not-use'
+    metadata:
+      displayName: 'PGCrunchy'
+      longDescription: *description
+      providerDisplayName: 'PostgreSQL Crunchy DB'
+      documentationUrl: 'https://pgcrunchy.com/'
+      supportUrl: 'https://pgcrunchy.com/'
+    dashboard_client:
+      id: 'service-fabrik-pgk8s-client'
+      secret: 'service-fabrik-pgk8s-secret'
+      redirect_uri: <%= redirect_uri %>
+    plan_updateable: true
+    supported_platform:
+    - k8s
+    - cf
+    plans:
+    ###########################
+    #      SERVICE PLANS      #
+    ###########################
+    - id: '366c5078-df6e-427d-8fb2-b76af50c0f56'
+      name: 'v1.0'
+      free: true
+      manager:
+        name: 'basic'
+        async: true
+        resource_mappings:
+          resource_group: 'deployment.servicefabrik.io'
+          resource_type: 'kubes'
+          bind:
+            resource_group: 'bind.servicefabrik.io'
+            resource_type: 'kubebinds'
+      description: 'PostgreSQL Crunchy Data on K8S provisioned by Service Fabrik'
+      metadata:
+        costs:
+        - amount:
+            usd: 0.0
+          unit: 'MONTHLY'
+        bullets:
+        - 'K8S Deployment'
+        - '128 MB Memory'
+        - '100 MB Disk'
 
   #####################
   # BLUEPRINT SERVICE #
