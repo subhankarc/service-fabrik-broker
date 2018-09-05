@@ -120,7 +120,7 @@ class AliService {
             return this._spawnSync(action, params);
         }, {
                 maxAttempts: 5,
-                minDelay: 2000
+                minDelay: 8000
             });
     }
 
@@ -137,7 +137,7 @@ class AliService {
             return this._spawnSync(action, params);
         }, {
                 maxAttempts: 5,
-                minDelay: 2000
+                minDelay: 8000
             });
     }
 

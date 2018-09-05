@@ -11,6 +11,8 @@ const utils = require('../../common/utils');
 const ServiceInstanceNotFound = errors.ServiceInstanceNotFound;
 const AssertionError = errors.AssertionError;
 const Conflict = errors.Conflict;
+const InternalServerError = errors.InternalServerError;
+const AliService = require('./AliService');
 
 class AliTaskPoller {
   static start() {
@@ -19,10 +21,10 @@ class AliTaskPoller {
       // If no lockedByPoller annotation then set annotation  with time
       // Else check timestamp if more than specific time than start polling and change lockedByPoller Ip
       return eventmesh.apiServerClient.getResource({
-          resourceGroup: resourceDetails.resourceGroup,
-          resourceType: resourceDetails.resourceType,
-          resourceId: object.metadata.name,
-        })
+        resourceGroup: resourceDetails.resourceGroup,
+        resourceType: resourceDetails.resourceType,
+        resourceId: object.metadata.name,
+      })
         .then(resourceBody => {
           const options = resourceBody.spec.options;
           const pollerAnnotation = resourceBody.metadata.annotations.lockedByTaskPoller;
@@ -43,25 +45,33 @@ class AliTaskPoller {
               metadata.annotations = patchAnnotations;
               // Handle conflict also
               return eventmesh.apiServerClient.updateResource({
-                  resourceGroup: resourceDetails.resourceGroup,
-                  resourceType: resourceDetails.resourceType,
-                  resourceId: metadata.name,
-                  metadata: metadata
-                })
+                resourceGroup: resourceDetails.resourceGroup,
+                resourceType: resourceDetails.resourceType,
+                resourceId: metadata.name,
+                metadata: metadata
+              })
                 .tap((updatedResource) => logger.debug(`Successfully acquired bosh task poller lock for request with options: ${JSON.stringify(options)}\n` +
                   `Updated resource with poller annotations is: `, updatedResource))
                 .then(() => {
                   if (_.includes([CONST.APISERVER.RESOURCE_STATE.SUCCEEDED, CONST.APISERVER.RESOURCE_STATE.FAILED], resourceBody.status.state)) {
                     AliTaskPoller.clearPoller(metadata.name, intervalId);
                   } else {
-                    logger.info('Hello');
-                    //Put your code here
-                    const lastOperationValue = {
-                      'description': 'Service creation completed successfully',
-                      'state': 'succeeded',
-                      'resourceState': 'succeeded'
-                    };
-                    return Promise.all([eventmesh.apiServerClient.updateResource({
+                    let aliS;
+                    return AliService.createInstance(metadata.name, options)
+                      .then(aliService => {
+                        aliS = aliService;
+                        return aliService.instanceInfo()
+                      })
+                      .tap(lastOperationValue => logger.debug('last operation value is ', lastOperationValue))
+                      .then(lastOperationValue => {
+                        if (lastOperationValue.resourceState === 'succeeded' && resourceBody.status.response.type === 'create') {
+                          logger.info('calling prepare instance');
+                          return aliS.prepareInstance()
+                            .return(lastOperationValue);
+                        }
+                        return lastOperationValue;
+                      })
+                      .then(lastOperationValue => Promise.all([eventmesh.apiServerClient.updateResource({
                         resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.DEPLOYMENT,
                         resourceType: 'apsaras',
                         resourceId: metadata.name,
@@ -74,8 +84,8 @@ class AliTaskPoller {
                           // cancel the poller and clear the array
                           AliTaskPoller.clearPoller(metadata.name, intervalId);
                         }
-                      })])
-                      .catch(ServiceInstanceNotFound, err => {
+                      })]))
+                      .catch(InternalServerError, err => {
                         logger.error(`Error occured while getting last operation`, err);
                         AliTaskPoller.clearPoller(metadata.name, intervalId);
                         if (resourceBody.status.response.type === 'delete') {
@@ -136,7 +146,7 @@ class AliTaskPoller {
       if ((event.type === CONST.API_SERVER.WATCH_EVENT.ADDED || event.type === CONST.API_SERVER.WATCH_EVENT.MODIFIED) && !AliTaskPoller.pollers[event.object.metadata.name]) {
         logger.debug('starting bosh task poller for deployment ', event.object.metadata.name);
         // Poller time should be little less than watch refresh interval as 
-        const intervalId = setInterval(() => poller(event.object, intervalId), CONST.DIRECTOR_RESOURCE_POLLER_INTERVAL);
+        const intervalId = setInterval(() => poller(event.object, intervalId), 90000);
         AliTaskPoller.pollers[event.object.metadata.name] = intervalId;
       }
     }

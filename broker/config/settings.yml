@@ -185,6 +185,19 @@ defaults: &defaults
     ssl:
       key: <%= certificate('broker.key') %>
       cert: <%= certificate('broker.crt') %>
+  ####################
+  # APSARADB SETTINGS #
+  ####################
+  apsaradb:
+    access_key: 'XXXXXXX'
+    secret_key: 'XXXXXXX'
+    region: 'XXXXXXX'
+    vpc_id: 'XXXXXXX'
+    vswitch_id: 'XXXXXXX'
+    account_name: 'XXXXXXX'
+    account_password: 'XXXXXXX'
+    db_name: 'XXXXXXX'
+
   ##############################
   # APISERVER SETTINGS #
   ##############################

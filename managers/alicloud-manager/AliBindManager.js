@@ -8,6 +8,8 @@ const logger = require('../../common/logger');
 const CONST = require('../../common/constants');
 const utils = require('../../common/utils');
 const BaseManager = require('../BaseManager');
+const AliService = require('./AliService');
+
 class AliBindManager extends BaseManager {
 
   init() {
@@ -18,12 +20,12 @@ class AliBindManager extends BaseManager {
 
   processRequest(changeObjectBody) {
     return Promise.try(() => {
-        if (changeObjectBody.status.state === CONST.APISERVER.RESOURCE_STATE.IN_QUEUE) {
-          return this._processBind(changeObjectBody);
-        } else if (changeObjectBody.status.state === CONST.APISERVER.RESOURCE_STATE.DELETE) {
-          return this._processUnbind(changeObjectBody);
-        }
-      })
+      if (changeObjectBody.status.state === CONST.APISERVER.RESOURCE_STATE.IN_QUEUE) {
+        return this._processBind(changeObjectBody);
+      } else if (changeObjectBody.status.state === CONST.APISERVER.RESOURCE_STATE.DELETE) {
+        return this._processUnbind(changeObjectBody);
+      }
+    })
       .catch(err => {
         logger.error('Error occurred in processing request by AliBindManager', err);
         return eventmesh.apiServerClient.updateResource({
@@ -44,43 +46,41 @@ class AliBindManager extends BaseManager {
     assert.ok(changeObjectBody.spec.options, `Argument 'spec.options' is required to process the request`);
     const changedOptions = JSON.parse(changeObjectBody.spec.options);
     assert.ok(changedOptions.plan_id, `Argument 'spec.options' should have an argument plan_id to process the request`);
-    const instanceGuid = _.get(changeObjectBody, 'metadata.labels.instance_guid');
     logger.info('Triggering bind with the following options:', changedOptions);
-    //Put your code here
-    const response = {
-      'foo': 'bar'
-    };
-    return eventmesh.apiServerClient.updateResource({
-      resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
-      resourceType: 'apsarabinds',
-      resourceId: changeObjectBody.metadata.name,
-      status: {
-        response: utils.encodeBase64(response),
-        state: CONST.APISERVER.RESOURCE_STATE.SUCCEEDED
-      }
-    });
+    const instanceGuid = _.get(changeObjectBody, 'metadata.labels.instance_guid');
+    return AliService.createInstance(instanceGuid, changedOptions)
+      .then(aliService => aliService.bindInstance(changedOptions))
+      .then(response => eventmesh.apiServerClient.updateResource({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
+        resourceType: 'apsarabinds',
+        resourceId: changeObjectBody.metadata.name,
+        status: {
+          response: utils.encodeBase64(response),
+          state: CONST.APISERVER.RESOURCE_STATE.SUCCEEDED
+        }
+      }));
   }
   _processUnbind(changeObjectBody) {
     assert.ok(changeObjectBody.metadata.name, `Argument 'metadata.name' is required to process the request`);
     assert.ok(changeObjectBody.metadata.labels.instance_guid, `Argument 'metadata.labels.instance_guid' is required to process the request`);
     assert.ok(changeObjectBody.spec.options, `Argument 'spec.options' is required to process the request`);
     const changedOptions = JSON.parse(changeObjectBody.spec.options);
+    const credentials = utils.decodeBase64(changeObjectBody.status.response);
+    const userName = credentials.username;
     assert.ok(changedOptions.plan_id, `Argument 'spec.options' should have an argument plan_id to process the request`);
     const instanceGuid = _.get(changeObjectBody, 'metadata.labels.instance_guid');
     logger.info('Triggering bosh unbind with the following options:', changedOptions);
-    //Put your code here
-    const response = {
-      'foo': 'bar'
-    };
-    return eventmesh.apiServerClient.updateResource({
-      resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
-      resourceType: 'apsarabinds',
-      resourceId: changeObjectBody.metadata.name,
-      status: {
-        response: response,
-        state: CONST.APISERVER.RESOURCE_STATE.SUCCEEDED
-      }
-    });
+    return AliService.createInstance(instanceGuid, changedOptions)
+      .then(aliService => aliService.unBindInstance(userName))
+      .then(response => eventmesh.apiServerClient.updateResource({
+        resourceGroup: CONST.APISERVER.RESOURCE_GROUPS.BIND,
+        resourceType: 'apsarabinds',
+        resourceId: changeObjectBody.metadata.name,
+        status: {
+          response: response,
+          state: CONST.APISERVER.RESOURCE_STATE.SUCCEEDED
+        }
+      }));
   }
 }
 
