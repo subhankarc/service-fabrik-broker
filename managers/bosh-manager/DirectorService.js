@@ -26,8 +26,8 @@ const FeatureNotSupportedByAnyAgent = errors.FeatureNotSupportedByAnyAgent;
 const ServiceBindingNotFound = errors.ServiceBindingNotFound;
 const DeploymentDelayed = errors.DeploymentDelayed;
 const BaseDirectorService = require('../BaseDirectorService');
+//TODO-CF-DEPENDENCY
 const cf = require('../../data-access-layer/cf');
-const cloudController = cf.cloudController;
 const serviceFabrikClient = cf.serviceFabrikClient;
 const Header = bosh.manifest.Header;
 const Addons = bosh.manifest.Addons;
@@ -41,7 +41,6 @@ class DirectorService extends BaseDirectorService {
     super(plan);
     this.guid = guid;
     this.plan = plan;
-    this.cloudController = cloudController;
     this.serviceFabrikClient = serviceFabrikClient;
     this.director = bosh.director;
     this.networkSegmentIndex = undefined;

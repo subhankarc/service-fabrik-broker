@@ -14,6 +14,7 @@ const config = require('../../../common/config');
 const CONST = require('../../../common/constants');
 const EventLogInterceptor = require('../../../common/EventLogInterceptor');
 const DirectorManager = require('./DirectorManager');
+//TODO-CF-DEPENDENCY
 const serviceFabrikClient = require('../../../data-access-layer/cf').serviceFabrikClient;
 
 class FabrikStatusPoller {

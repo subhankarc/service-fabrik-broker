@@ -8,6 +8,7 @@ const errors = require('../common/errors');
 const logger = require('../common/logger');
 const NotImplementedBySubclass = errors.NotImplementedBySubclass;
 const CONST = require('../common/constants');
+//TODO-CF-DEPENDENCY not used!!
 const serviceFabrikClient = require('../data-access-layer/cf').serviceFabrikClient;
 const serviceBrokerClient = require('../common/utils/ServiceBrokerClient');
 const Repository = require('../common/db').Repository;

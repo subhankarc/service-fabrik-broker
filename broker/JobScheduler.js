@@ -12,6 +12,7 @@ const config = require('../common/config');
 const utils = require('../common/utils');
 const errors = require('../common/errors');
 const maintenanceManager = require('../maintenance').maintenanceManager;
+//TODO-CF-DEPENDENCY
 const serviceFabrikClient = require('../data-access-layer/cf').serviceFabrikClient;
 require('./lib/fabrik');
 
