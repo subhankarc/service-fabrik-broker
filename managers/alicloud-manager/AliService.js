@@ -8,6 +8,7 @@ const ServiceInstanceNotFound = error.ServiceInstanceNotFound;
 const logger = require('../../common/logger');
 const utils = require('../../common/utils');
 const config = require('../../common/config');
+const path = require('path');
 
 class AliService {
     constructor(guid) {
@@ -18,7 +19,8 @@ class AliService {
     }
 
     _spawnSync(action, params) {
-        const path = '/Users/i341345/gitrepos/sf20/service-fabrik-broker/managers/alicloud-manager/alicloud-apsaradb/main.py';
+        const servicePath = `${path.resolve(path.dirname(''))}/alicloud-apsaradb/main.py`;
+        logger.info(`Main.py servicePath is: `, servicePath);
         const commonParams = {
             access_key: this.access_key,
             secret_key: this.secret_key,
@@ -34,7 +36,7 @@ class AliService {
                 return `--${key}=${value}`;
             })
             .value();
-        const spawnParameters = _(path)
+        const spawnParameters = _(servicePath)
             .chain()
             .concat(action, pythonParams)
             .flatten()
