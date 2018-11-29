@@ -1,0 +1,21 @@
+seqdiag {
+  # Change edge metrics
+  edge_length = 150; // default value is 192
+  span_height = 0;   // default value is 40
+
+  # Change note color
+  default_note_color = lightblue;
+
+  # actors (in order left to right)
+  Controller; InterOperator; APIServer; ServiceOperator; Service;
+
+  # trigger provisioning of service instance
+  Controller => InterOperator [label = "run provisioning", return = "ok"] {
+    InterOperator => APIServer [label = "Creates a ServiceInstance resource with state as in_progress", return = "true"];
+    InterOperator => APIServer [label = "Applies the template corresponding to the plan, creates corresponding resources", return = "true"];
+  }
+
+  APIServer -> ServiceOperator [label = "Trigger watcher for new create request"]
+  ServiceOperator ->> Service [label = "service deploy"]
+  ServiceOperator -> APIServer [label = "sets resource state as in_progress", return = "true"];
+}

@@ -1,0 +1,65 @@
+seqdiag {
+  # Change edge metrics
+  edge_length = 150; // default value is 192
+  span_height = 0;   // default value is 40
+
+  # Change note color
+  default_note_color = lightblue;
+
+  # actors (in order left to right)
+  User; Controller; Broker; InterOperator; APIServer; ServiceOperator; Service;
+
+  # trigger provisioning of service instance
+  User ->> Controller [label = "cf create-service"] {
+    Controller => Broker [label = "run provisioning", return = "ok"] {
+      Broker => APIServer [label = "Create a ServiceInstance resource with state as in_queue", return = "true"];
+    }
+  }
+
+  APIServer -> InterOperator [label = "Trigger watcher for new ServiceInstance create request"]
+  InterOperator => APIServer [label = "Applies the template corresponding to the plan, creates corresponding resources", return = "true"];
+  InterOperator => APIServer [label = "Sets the service instance status as in_progress", return = "true"];
+
+  APIServer -> ServiceOperator [label = "Trigger watcher for new create request"]
+  ServiceOperator ->> Service [label = "service deploy"]
+  ServiceOperator -> APIServer [label = "sets resource state as in_progress", return = "true"];
+
+  ServiceOperator -> ServiceOperator [ label = "Start Poller" ];
+
+  # ServiceOperator asks for last operation status
+  ServiceOperator => ServiceOperator [ label = "check status" ]{
+    ServiceOperator => Service [label = "deployment state?", return = "in progress"]
+    ServiceOperator => APIServer [label = "sets resource state as in_progress"]
+  }
+        
+  # Inter Operator checks for last operation status
+  InterOperator => InterOperator [label = "last operation state ?", return = "in_progress"] {
+    InterOperator => APIServer [label = "state retrieved from template ?", return = "in_progress"]
+    InterOperator => APIServer [label = "Sets ServiceInstance state as in_progress", return = "true"]
+  }
+  
+
+  # controller asks for last operation status
+  Controller => Broker [label = "last operation?", return = "in progress"] {
+    Broker => APIServer [label = "state of ServiceInstance resource?", return = "in_progress"]
+  }
+
+  # ServiceOperator asks for last operation status
+  ServiceOperator => ServiceOperator [ label = "check status" ]{
+    ServiceOperator => Service [label = "deployment state?", return = "succeeded"]
+    ServiceOperator => APIServer [label = "sets resource state as succeeded"]
+  }
+
+    # Inter Operator checks for last operation status
+  InterOperator => InterOperator [label = "last operation state ?", return = "succeeded"] {
+    InterOperator => APIServer [label = "state retrieved from template ?", return = "succeeded"]
+    InterOperator => APIServer [label = "Sets ServiceInstance state as succeeded", return = "true"]
+  }
+
+  # controller asks for last operation status
+  Controller => Broker [label = "last operation?", return = "succeeded"] {
+    Broker => APIServer [label = "state of ServiceInstance resource?", return = "succeeded"]
+  }
+
+  User <<-- Controller [label = "creation completed\nno actual callback"]
+}
