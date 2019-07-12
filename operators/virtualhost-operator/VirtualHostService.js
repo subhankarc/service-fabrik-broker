@@ -135,18 +135,21 @@ class VirtualHostService extends BaseService {
       .catchThrow(NotFound, new ServiceBindingNotFound(bindingId));
   }
 
+  //TODO: Change this as the BOSH api is removed.
   createBindingProperty(deploymentName, bindingId, value) {
     return this.director
       .createDeploymentProperty(deploymentName, `binding-${bindingId}`, JSON.stringify(value))
       .catchThrow(BadRequest, new ServiceBindingAlreadyExists(bindingId));
   }
 
+  //TODO: Change this as the BOSH api is removed.
   getBindingProperty(deploymentName, bindingId) {
     return this.director
       .getDeploymentProperty(deploymentName, `binding-${bindingId}`)
       .then(result => JSON.parse(result));
   }
 
+  //TODO: Change this as the BOSH api is removed.
   deleteBindingProperty(deploymentName, bindingId) {
     return this.director.deleteDeploymentProperty(deploymentName, `binding-${bindingId}`);
   }

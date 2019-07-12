@@ -680,26 +680,6 @@ describe('bosh', () => {
       });
     });
 
-    describe('#getDeploymentProperties', () => {
-      it('returns a JSON object', (done) => {
-        let request = {
-          method: 'GET',
-          url: `/deployments/${id}/properties`
-        };
-        let response = {
-          body: JSON.stringify({
-            uuid: uuid.v4()
-          }),
-          statusCode: 200
-        };
-
-        new MockBoshDirectorClient(request, response).getDeploymentProperties(id).then((content) => {
-          expect(content).to.eql(JSON.parse(response.body));
-          done();
-        }).catch(done);
-      });
-    });
-
     describe('#errands', () => {
       it('should return errands array for the deployment', () => {
         const req = {

@@ -536,16 +536,6 @@ class BoshDirectorClient extends HttpClient {
       .catch(err => this.convertHttpErrorAndThrow(err));
   }
 
-  /* Property operations */
-  getDeploymentProperties(deploymentName) {
-    return this
-      .makeRequest({
-        method: 'GET',
-        url: `/deployments/${deploymentName}/properties`
-      }, 200, deploymentName)
-      .then(res => JSON.parse(res.body));
-  }
-
   getDeploymentIps(deploymentName) {
     return Promise.try(() => {
       if (this.deploymentIpsCache[deploymentName] !== undefined) {
@@ -795,13 +785,13 @@ class BoshDirectorClient extends HttpClient {
       .then(res => JSON.parse(res.body).value);
   }
 
-  deleteDeploymentProperty(deploymentName, propertyName) {
-    return this
-      .makeRequest({
-        method: 'DELETE',
-        url: `/deployments/${deploymentName}/properties/${propertyName}`
-      }, 204, deploymentName);
-  }
+  // deleteDeploymentProperty(deploymentName, propertyName) {
+  //   return this
+  //     .makeRequest({
+  //       method: 'DELETE',
+  //       url: `/deployments/${deploymentName}/properties/${propertyName}`
+  //     }, 204, deploymentName);
+  // }
 
   /*  Task operations */
 

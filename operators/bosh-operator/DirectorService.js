@@ -61,6 +61,7 @@ class DirectorService extends BaseDirectorService {
         }
         logger.debug(`Fetching context from etcd failed for ${this.guid}. Trying to fetch from Bosh...`);
         return Promise.try(() => _.isInteger(this.networkSegmentIndex) ? this.deploymentName : this.director.getDeploymentNameForInstanceId(this.guid))
+          //TODO: Change this as the BOSH api is removed.
           .then(deploymentName => this.director.getDeploymentProperty(deploymentName, CONST.PLATFORM_CONTEXT_KEY))
           .then(context => JSON.parse(context))
           .catch(NotFound, () => {
@@ -812,6 +813,7 @@ class DirectorService extends BaseDirectorService {
         if (credentials) {
           return credentials;
         }
+        //TODO: Change this as the BOSH api is removed.
         logger.info(`[getCredentials] Fetching property from bosh for binding ${id}`);
         return this.getBindingProperty(deploymentName, id)
           .then(binding => binding.credentials);
@@ -837,6 +839,7 @@ class DirectorService extends BaseDirectorService {
       });
   }
 
+  //TODO: Change this as the BOSH api is removed.
   getBindingProperty(deploymentName, id) {
     return this.director
       .getDeploymentProperty(deploymentName, `binding-${id}`)
